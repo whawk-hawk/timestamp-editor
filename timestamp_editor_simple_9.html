@@ -38,6 +38,19 @@ header p{font-size:11px;color:var(--text2);margin-top:4px;}
 /* 動画プレーヤーのラッパー（動画＋下の自作コントロール） */
 .video-stage{display:none;margin-top:10px;}
 
+/* 全画面モード：動画プレーヤー一式をビューポート全体に固定表示し、他パネルから独立させる */
+.video-stage.fullscreen-mode{position:fixed;inset:0;z-index:300;background:#000;margin:0;padding:16px;display:flex;flex-direction:column;justify-content:center;overflow-y:auto;}
+.video-stage.fullscreen-mode .video-frame{max-width:900px;width:100%;margin:0 auto;}
+.video-stage.fullscreen-mode .custom-controls{max-width:900px;width:100%;margin:8px auto 0;}
+
+/* 全画面切り替えボタン（パネルタイトル内） */
+.fullscreen-toggle-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;font-size:11px;font-family:'Noto Sans JP',sans-serif;padding:5px 10px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+.fullscreen-toggle-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* 全画面モードを閉じるボタン（全画面モード時のみ表示） */
+.fullscreen-close-btn{display:none;align-self:flex-end;max-width:900px;width:100%;margin:0 auto 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:13px;font-weight:700;font-family:'Noto Sans JP',sans-serif;padding:10px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+.video-stage.fullscreen-mode .fullscreen-close-btn{display:block;}
+
 /* 動画フレーム：video要素＋重ねるUI（記録オーバーレイ・👍フラッシュ・ミュートボタン）の土台 */
 .video-frame{position:relative;}
 
@@ -124,6 +137,7 @@ input:focus,select:focus{border-color:var(--accent);}
 
 /* 固定下部バー */
 .bottom-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 20px;z-index:50;display:flex;gap:10px;align-items:center;}
+body.fullscreen-active .bottom-bar{display:none;}
 .bb-btn{border:none;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:13px;padding:11px 16px;cursor:pointer;}
 .bb-primary{background:var(--accent);color:#0a0f1a;flex:2;}
 .bb-secondary{background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:13px;padding:11px 16px;cursor:pointer;text-align:center;display:inline-block;flex:1;}
@@ -171,11 +185,15 @@ input:focus,select:focus{border-color:var(--accent);}
   <div class="left-sticky">
 
     <div class="panel">
-      <div class="panel-title">🎬 動画プレーヤー</div>
+      <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>🎬 動画プレーヤー</span>
+        <button type="button" class="fullscreen-toggle-btn" id="fullscreenToggleBtn" onclick="toggleFullscreenMode()" style="display:none;">⛶ 全画面</button>
+      </div>
       <label class="video-select-label" for="videoFileInput">📂 動画ファイルを選択（mp4）</label>
       <input type="file" id="videoFileInput" accept="video/mp4,video/*" onchange="loadVideo(event)" style="display:none">
       <p class="video-hint">再生と連動してタイムスタンプが記録されます。SCENEの「▶ 確認」でジャンプします（−7秒）。映像右上の👍ボタンで記録されます。</p>
       <div class="video-stage" id="videoStage">
+        <button type="button" class="fullscreen-close-btn" id="fullscreenCloseBtn" onclick="toggleFullscreenMode()">✕ 閉じる</button>
         <div class="video-frame">
           <video id="sharedVideo" playsinline webkit-playsinline preload="metadata"></video>
           <button type="button" class="video-record-overlay" id="videoRecordOverlay" tabindex="-1" onclick="recordTimestamp()" aria-label="Good play">👍</button>
@@ -338,6 +356,7 @@ function loadVideo(event){
   video.src=URL.createObjectURL(file);
   video.style.display='block';
   document.getElementById('videoStage').style.display='block';
+  document.getElementById('fullscreenToggleBtn').style.display='inline-block';
   videoMode=true;
   const baseName=file.name.replace(/\.[^.]+$/,'');
   const fi=document.getElementById('live_file');
@@ -362,6 +381,18 @@ function loadVideo(event){
   video.ontimeupdate=updateCustomControls;
 }
 function getVideo(){return document.getElementById('sharedVideo');}
+
+// ===== 全画面モード（横向き想定の大画面表示。SCENE一覧などの他パネルを隠し、動画プレーヤーのみ表示） =====
+let fullscreenActive=false;
+function toggleFullscreenMode(){
+  fullscreenActive=!fullscreenActive;
+  const stage=document.getElementById('videoStage');
+  stage.classList.toggle('fullscreen-mode',fullscreenActive);
+  document.body.classList.toggle('fullscreen-active',fullscreenActive);
+  document.body.style.overflow=fullscreenActive?'hidden':'';
+  const toggleBtn=document.getElementById('fullscreenToggleBtn');
+  if(toggleBtn) toggleBtn.textContent=fullscreenActive?'⛶ 戻る':'⛶ 全画面';
+}
 
 // ===== ミュート切り替え =====
 function toggleMute(event){
