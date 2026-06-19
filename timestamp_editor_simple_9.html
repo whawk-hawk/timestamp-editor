@@ -181,7 +181,7 @@ input:focus,select:focus{border-color:var(--accent);}
       <div class="video-stage" id="videoStage">
         <div class="video-frame">
           <video id="sharedVideo" playsinline webkit-playsinline preload="metadata"></video>
-          <button type="button" class="video-record-overlay" id="videoRecordOverlay" onclick="recordTimestamp()" aria-label="Good play"></button>
+          <button type="button" class="video-record-overlay" id="videoRecordOverlay" tabindex="-1" onclick="recordTimestamp()" aria-label="Good play"></button>
           <span class="thumbsup-flash" id="thumbsUpFlash">👍</span>
           <button type="button" class="mute-btn" id="muteBtn" onclick="toggleMute(event)" aria-label="音声のオン・オフ">🔊</button>
         </div>
