@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>タイムスタンプ入力（シンプル版）</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Share+Tech+Mono&display=swap');
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;
+  --accent:#4fc3f7;--green:#69f0ae;--red:#ff5252;
+  --text:#e8eaf0;--text2:#8892a4;--border:#2e3347;--radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;padding:16px 16px 72px;}
+.wrapper{max-width:1100px;margin:0 auto;}
+
+header{text-align:center;margin-bottom:16px;}
+header h1{font-size:19px;font-weight:700;letter-spacing:.08em;color:var(--accent);}
+header p{font-size:11px;color:var(--text2);margin-top:4px;}
+
+/* 2カラム */
+.two-col{display:grid;grid-template-columns:55fr 45fr;gap:14px;align-items:start;}
+@media(max-width:760px){.two-col{grid-template-columns:1fr;}}
+.left-sticky{position:sticky;top:12px;}
+
+/* パネル */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+.panel:last-child{margin-bottom:0;}
+.panel-title{font-size:11px;color:var(--text2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
+
+/* 動画 */
+.video-select-label{display:inline-block;background:var(--surface2);border:1px solid var(--accent);color:var(--accent);border-radius:8px;font-size:12px;font-family:'Noto Sans JP',sans-serif;padding:8px 14px;cursor:pointer;transition:background .15s;}
+.video-select-label:hover{background:rgba(79,195,247,.12);}
+.video-hint{font-size:11px;color:var(--text2);margin:6px 0 0;}
+#sharedVideo{width:100%;border-radius:8px;background:#000;max-height:380px;margin-top:10px;display:block;}
+
+/* 動画プレーヤーのラッパー（動画＋下の記録ボタン） */
+.video-stage{display:none;margin-top:10px;}
+
+/* Good playボタン：動画の外（すぐ下）に独立配置。Safariのネイティブ動画コントロールとは絶対に重ならない */
+.thumbsup-btn{width:100%;background:var(--accent);color:#0a0f1a;font-size:26px;line-height:1;padding:14px;border-radius:var(--radius);border:none;cursor:pointer;margin-top:8px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:transform .08s,background .08s;}
+.thumbsup-btn:active{transform:scale(.97);}
+.thumbsup-btn.flash{background:#8ef0c0;}
+
+/* 自作動画コントロール（Safariネイティブコントロールを使わないため自前で実装） */
+.custom-controls{background:#10141f;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:8px;}
+.cc-row{display:flex;align-items:center;gap:8px;}
+.cc-btn{background:#1c2333;color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:14px;font-weight:700;padding:8px 10px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;white-space:nowrap;}
+.cc-btn:active{background:#28314a;}
+.cc-playpause{min-width:40px;font-size:16px;}
+.cc-time{margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--text2);white-space:nowrap;}
+.cc-seek{width:100%;margin-top:8px;accent-color:var(--accent);cursor:pointer;touch-action:manipulation;}
+
+/* フォーム */
+.field label{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;}
+input[type=text],select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:13px;padding:7px 10px;outline:none;}
+input:focus,select:focus{border-color:var(--accent);}
+.filename-wrap{display:flex;align-items:center;gap:6px;}
+.filename-wrap input{flex:1;}
+.filename-ext{color:var(--text2);font-size:12px;font-family:'Share Tech Mono',monospace;white-space:nowrap;}
+
+/* 折りたたみ */
+.collapse-toggle{background:none;border:none;color:var(--text2);font-size:11px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0;margin-bottom:8px;}
+.collapse-toggle:hover{color:var(--accent);}
+.collapse-arrow{transition:transform .2s;display:inline-block;}
+.collapse-toggle.closed .collapse-arrow{transform:rotate(-90deg);}
+.collapse-body{overflow:hidden;transition:max-height .25s ease;}
+.collapse-body.closed{max-height:0!important;}
+
+/* ストップウォッチ */
+.sw-display{font-family:'Share Tech Mono',monospace;font-size:24px;font-weight:bold;color:var(--accent);letter-spacing:.05em;text-align:center;margin-bottom:4px;}
+.sw-display.running{color:var(--green);}
+.sw-mode-label{font-size:10px;color:var(--text2);text-align:center;margin-bottom:10px;}
+.sw-mode-label.video-mode{color:var(--green);}
+.sw-controls{display:flex;gap:6px;margin-bottom:12px;}
+.sw-btn{border:none;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;padding:10px 12px;cursor:pointer;transition:all .15s;flex:1;}
+.sw-btn.start{background:var(--green);color:#0a1a0f;}
+.sw-btn.pause{background:var(--accent);color:#0a0f1a;}
+.sw-btn.reset{background:none;border:1px solid var(--border);color:var(--text2);}
+.sw-btn.reset:hover{border-color:var(--red);color:var(--red);}
+.sw-btn:disabled{opacity:.35;cursor:default;}
+
+/* Good playボタン */
+/* Good playボタンは動画プレーヤー内の thumbsup-btn に統合済み */
+
+/* SCENEカード */
+.entry-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;}
+.card-summary{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;}
+.entry-num{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em;white-space:nowrap;}
+.entry-time-disp{font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--text2);}
+.entry-file-disp{flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.card-actions{display:flex;align-items:center;gap:5px;flex-shrink:0;}
+.toggle-arrow{font-size:10px;color:var(--text2);transition:transform .2s;display:inline-block;width:12px;text-align:center;}
+.toggle-arrow.open{transform:rotate(90deg);}
+.entry-detail{overflow:hidden;transition:max-height .25s ease;}
+.entry-detail.collapsed{max-height:0!important;}
+.entry-detail-inner{padding-top:10px;margin-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.btn-jump{background:none;border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;}
+.btn-jump:hover{background:rgba(79,195,247,.15);}
+.btn-del{background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;}
+.btn-del:hover{border-color:var(--red);color:var(--red);}
+
+/* プレビュー */
+.preview-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;margin-bottom:6px;}
+.preview-toggle span{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;}
+.preview-arrow{font-size:10px;color:var(--text2);transition:transform .2s;display:inline-block;}
+.preview-arrow.open{transform:rotate(90deg);}
+.preview-body{overflow:hidden;transition:max-height .25s ease;}
+.preview-body pre{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--green);line-height:1.8;white-space:pre-wrap;word-break:break-all;}
+
+/* 手動追加 */
+.ts-wrap{display:flex;align-items:center;gap:5px;}
+.ts-wrap select{width:64px;text-align:center;}
+.ts-sep{color:var(--text2);font-family:'Share Tech Mono',monospace;}
+.btn-add{background:var(--green);color:#0a1a0f;font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;padding:7px 12px;border-radius:8px;border:none;cursor:pointer;white-space:nowrap;}
+
+/* 固定下部バー */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 20px;z-index:50;display:flex;gap:10px;align-items:center;}
+.bb-btn{border:none;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:13px;padding:11px 16px;cursor:pointer;}
+.bb-primary{background:var(--accent);color:#0a0f1a;flex:2;}
+.bb-secondary{background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:13px;padding:11px 16px;cursor:pointer;text-align:center;display:inline-block;flex:1;}
+.bb-secondary:hover{border-color:var(--accent);color:var(--accent);}
+.bb-danger{background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:13px;padding:11px 16px;cursor:pointer;}
+.bb-danger:hover{border-color:var(--red);color:var(--red);}
+
+.toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--green);color:#0a1a0f;font-weight:700;font-size:13px;padding:10px 24px;border-radius:30px;transition:transform .3s ease;pointer-events:none;z-index:200;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+/* 動画選択モーダル */
+.video-modal-overlay{position:fixed;inset:0;background:rgba(5,8,15,.85);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;}
+.video-modal-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;max-width:420px;width:100%;text-align:center;}
+.video-modal-box h2{font-size:18px;color:var(--accent);margin-bottom:8px;}
+.video-modal-box p{font-size:12px;color:var(--text2);margin-bottom:20px;line-height:1.7;}
+.video-modal-select{display:inline-block;background:var(--accent);color:#0a0f1a;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;padding:14px 28px;border-radius:var(--radius);cursor:pointer;margin-bottom:12px;transition:opacity .15s;}
+.video-modal-select:hover{opacity:.85;}
+.video-modal-skip{background:none;border:none;color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;text-decoration:underline;}
+.video-modal-skip:hover{color:var(--accent);}
+</style>
+</head>
+<body>
+<!-- 起動時 動画選択モーダル -->
+<div class="video-modal-overlay" id="videoModal">
+  <div class="video-modal-box">
+    <h2>🎬 動画を選択してください</h2>
+    <p>試合動画を選択すると、再生に連動してタイムスタンプが記録されます。<br>動画なしでもストップウォッチで記録できます。</p>
+    <label class="video-modal-select" for="videoFileInputModal">📂 動画ファイルを選択（mp4）</label>
+    <input type="file" id="videoFileInputModal" accept="video/mp4,video/*" onchange="loadVideoFromModal(event)" style="display:none">
+    <br>
+    <button class="video-modal-skip" onclick="skipVideoModal()">動画なしで始める</button>
+  </div>
+</div>
+
+<div class="wrapper">
+
+<header>
+  <h1>⚽ タイムスタンプ入力（シンプル版）</h1>
+  <p>テロップなし・前後切り出し秒数固定（前7秒・後5秒）</p>
+</header>
+
+<div class="two-col">
+
+  <!-- 左：動画＋プレビュー sticky -->
+  <div class="left-sticky">
+
+    <div class="panel">
+      <div class="panel-title">🎬 動画プレーヤー</div>
+      <label class="video-select-label" for="videoFileInput">📂 動画ファイルを選択（mp4）</label>
+      <input type="file" id="videoFileInput" accept="video/mp4,video/*" onchange="loadVideo(event)" style="display:none">
+      <p class="video-hint">再生と連動してタイムスタンプが記録されます。SCENEの「▶ 確認」でジャンプします（−7秒）。下の「👍」ボタンで記録されます。</p>
+      <div class="video-stage" id="videoStage">
+        <video id="sharedVideo" playsinline webkit-playsinline muted preload="metadata"></video>
+        <div class="custom-controls">
+          <div class="cc-row">
+            <button type="button" class="cc-btn" onclick="seekRelative(-10)" aria-label="10秒戻る">⏪10</button>
+            <button type="button" class="cc-btn cc-playpause" id="ccPlayPauseBtn" onclick="toggleVideoPlay()" aria-label="再生・一時停止">▶</button>
+            <button type="button" class="cc-btn" onclick="seekRelative(10)" aria-label="10秒進む">10⏩</button>
+            <span class="cc-time" id="ccTimeLabel">00:00 / 00:00</span>
+          </div>
+          <input type="range" class="cc-seek" id="ccSeekBar" min="0" max="100" value="0" step="0.1">
+        </div>
+        <button type="button" class="thumbsup-btn" id="thumbsUpBtn" onclick="recordTimestamp()" aria-label="Good play">👍 Good play !</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="preview-toggle" onclick="togglePreview()">
+        <span>プレビュー</span>
+        <span class="preview-arrow" id="previewArrow">▶</span>
+      </div>
+      <div class="preview-body" id="previewBody" style="max-height:0">
+        <pre id="preview"># ここにプレビューが表示されます</pre>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 右：操作 -->
+  <div>
+
+    <!-- ファイル名（折りたたみ） -->
+    <div class="panel">
+      <button class="collapse-toggle" id="fileToggle" onclick="toggleCollapse('fileBody','fileToggle')">
+        <span class="collapse-arrow">▼</span> 動画ファイル名
+      </button>
+      <div class="collapse-body" id="fileBody">
+        <div class="field">
+          <div class="filename-wrap">
+            <input type="text" id="live_file" placeholder="game1" oninput="saveFile()">
+            <span class="filename-ext">.mp4</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ストップウォッチ -->
+    <div class="panel" style="text-align:center">
+      <div class="sw-display" id="stopwatchDisplay">00:00</div>
+      <div class="sw-mode-label" id="swModeLabel">⏱ ストップウォッチモード</div>
+      <div class="sw-controls">
+        <button class="sw-btn start" id="swStartBtn" onclick="startStopwatch()">▶ スタート</button>
+        <button class="sw-btn pause" id="swPauseBtn" onclick="pauseStopwatch()" disabled>⏸ 停止</button>
+        <button class="sw-btn reset" onclick="resetStopwatch()">↺</button>
+      </div>
+    </div>
+
+    <!-- SCENEリスト -->
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;">シーン一覧</span>
+        <button style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;font-size:11px;font-family:'Noto Sans JP',sans-serif;padding:5px 10px;cursor:pointer;" id="toggleAllBtn" onclick="toggleAllScenes()">▼ すべて展開</button>
+      </div>
+      <div id="entries"></div>
+      <div style="display:flex;gap:8px;margin-top:4px;align-items:center;">
+        <input type="text" id="add_file" placeholder="game1.mp4" style="flex:1">
+        <div class="ts-wrap">
+          <select id="add_min"></select>
+          <span class="ts-sep">:</span>
+          <select id="add_sec"></select>
+        </div>
+        <button class="btn-add" onclick="addManualEntry()">＋ 追加</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 固定下部バー -->
+<div class="bottom-bar">
+  <label class="bb-secondary" for="fileInput" style="cursor:pointer">📤 読み込む</label>
+  <input type="file" id="fileInput" accept=".txt" onchange="importTxt(event)" style="display:none">
+  <button class="bb-btn bb-primary" onclick="exportTxt()">📥 timestamps_simple.txt を出力</button>
+  <button class="bb-danger" onclick="clearAll()">リセット</button>
+</div>
+
+<div class="toast" id="toast">✅ 保存しました</div>
+</div>
+
+<script>
+const PRE_SEC = 7;
+const POST_SEC = 5;
+let entries = [];
+let swElapsed=0,swRunning=false,swStartTimestamp=0,swTimerId=null;
+let videoMode=false;
+let previewOpen=false;
+let allExpanded=false;
+let sceneCount=0;
+
+window.onload = () => {
+  makeTimeSelects();
+  renderEntries();
+  initSeekBarEvents();
+  const saved=localStorage.getItem('hl_simple_file');
+  if(saved) document.getElementById('live_file').value=saved;
+  const fb=document.getElementById('fileBody');
+  if(fb) fb.style.maxHeight=fb.scrollHeight+'px';
+  // 起動時に動画選択モーダルを表示
+  document.getElementById('videoModal').style.display='flex';
+};
+
+function makeTimeSelects(){
+  const m=document.getElementById('add_min'),s=document.getElementById('add_sec');
+  for(let i=0;i<=30;i++) m.innerHTML+=`<option value="${i}">${String(i).padStart(2,'0')}</option>`;
+  for(let i=0;i<=59;i++) s.innerHTML+=`<option value="${i}">${String(i).padStart(2,'0')}</option>`;
+}
+
+function loadVideoFromModal(event){
+  document.getElementById('videoModal').style.display='none';
+  // 通常の動画読み込み処理に委譲
+  const dt = { target: event.target };
+  loadVideo(dt);
+}
+function skipVideoModal(){
+  document.getElementById('videoModal').style.display='none';
+  setTimeout(()=>document.getElementById('live_file')?.focus(),100);
+}
+
+function saveFile(){
+  localStorage.setItem('hl_simple_file',document.getElementById('live_file').value||'');
+}
+
+// ===== 折りたたみ =====
+function toggleCollapse(bodyId,btnId){
+  const body=document.getElementById(bodyId),btn=document.getElementById(btnId);
+  const closed=body.classList.contains('closed');
+  body.style.maxHeight=closed?body.scrollHeight+200+'px':'0';
+  body.classList.toggle('closed',!closed);
+  btn.classList.toggle('closed',!closed);
+}
+function togglePreview(){
+  previewOpen=!previewOpen;
+  const body=document.getElementById('previewBody'),arrow=document.getElementById('previewArrow');
+  body.style.maxHeight=previewOpen?body.scrollHeight+200+'px':'0';
+  arrow.classList.toggle('open',previewOpen);
+}
+
+// ===== 動画 =====
+function loadVideo(event){
+  const file=event.target.files[0]; if(!file) return;
+  const video=document.getElementById('sharedVideo');
+  // 一部のモバイルブラウザはHTML属性だけでなくJSプロパティとしての設定も必要なため明示的にセット
+  video.playsInline=true;
+  video.muted=true;
+  video.setAttribute('playsinline','');
+  video.setAttribute('webkit-playsinline','');
+  if(video.src&&video.src.startsWith('blob:')) URL.revokeObjectURL(video.src);
+  video.src=URL.createObjectURL(file);
+  video.style.display='block';
+  document.getElementById('videoStage').style.display='block';
+  videoMode=true;
+  const baseName=file.name.replace(/\.[^.]+$/,'');
+  const fi=document.getElementById('live_file');
+  if(fi){fi.value=baseName;saveFile();}
+  updateSwModeLabel();
+  video.onplay=()=>{
+    swRunning=true;
+    document.getElementById('swStartBtn').disabled=true;
+    document.getElementById('swPauseBtn').disabled=false;
+    if(!swTimerId) swTimerId=setInterval(updateSwDisplay,250);
+    updateCustomControls();
+  };
+  video.onpause=()=>{
+    swRunning=false;
+    document.getElementById('swStartBtn').disabled=false;
+    document.getElementById('swPauseBtn').disabled=true;
+    clearInterval(swTimerId);swTimerId=null;updateSwDisplay();
+    updateCustomControls();
+  };
+  video.onseeked=()=>{updateSwDisplay();updateCustomControls();};
+  video.onloadedmetadata=updateCustomControls;
+  video.ontimeupdate=updateCustomControls;
+}
+function getVideo(){return document.getElementById('sharedVideo');}
+
+// ===== 自作動画コントロール =====
+// Safariのネイティブcontrolsは使わず、再生/一時停止・シークバー・時間表示・10秒送り戻しを自前で実装
+let ccSeeking=false;
+function toggleVideoPlay(){
+  const v=getVideo(); if(!v) return;
+  if(v.paused) v.play(); else v.pause();
+}
+function seekRelative(deltaSec){
+  const v=getVideo(); if(!v||!isFinite(v.duration)) return;
+  v.currentTime=Math.min(Math.max(v.currentTime+deltaSec,0),v.duration);
+  updateCustomControls();
+}
+function updateCustomControls(){
+  const v=getVideo(); if(!v) return;
+  const playBtn=document.getElementById('ccPlayPauseBtn');
+  if(playBtn) playBtn.textContent=v.paused?'▶':'⏸';
+  const timeLabel=document.getElementById('ccTimeLabel');
+  const dur=isFinite(v.duration)?v.duration:0;
+  if(timeLabel) timeLabel.textContent=`${fmt(v.currentTime)} / ${fmt(dur)}`;
+  const seekBar=document.getElementById('ccSeekBar');
+  if(seekBar&&!ccSeeking){
+    seekBar.max=dur||100;
+    seekBar.value=v.currentTime||0;
+  }
+}
+function initSeekBarEvents(){
+  const seekBar=document.getElementById('ccSeekBar');
+  if(!seekBar) return;
+  seekBar.addEventListener('input',()=>{
+    ccSeeking=true;
+    const timeLabel=document.getElementById('ccTimeLabel');
+    const v=getVideo();
+    if(timeLabel&&v) timeLabel.textContent=`${fmt(parseFloat(seekBar.value))} / ${fmt(isFinite(v.duration)?v.duration:0)}`;
+  });
+  seekBar.addEventListener('change',()=>{
+    const v=getVideo();
+    if(v) v.currentTime=parseFloat(seekBar.value);
+    ccSeeking=false;
+  });
+}
+
+// ===== ストップウォッチ =====
+function fmt(s){return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;}
+function currentTime(){
+  if(videoMode) return getVideo()?.currentTime||0;
+  return swRunning?swElapsed+(Date.now()-swStartTimestamp)/1000:swElapsed;
+}
+function updateSwDisplay(){
+  const el=document.getElementById('stopwatchDisplay');
+  el.textContent=fmt(currentTime());
+  el.classList.toggle('running',videoMode?!getVideo()?.paused:swRunning);
+}
+function updateSwModeLabel(){
+  const el=document.getElementById('swModeLabel'); if(!el)return;
+  el.textContent=videoMode?'🎬 動画連動モード':'⏱ ストップウォッチモード';
+  el.classList.toggle('video-mode',videoMode);
+}
+function startStopwatch(){
+  if(videoMode){const v=getVideo();if(v?.paused)v.play();return;}
+  if(swRunning)return;
+  swRunning=true;swStartTimestamp=Date.now();
+  document.getElementById('swStartBtn').disabled=true;
+  document.getElementById('swPauseBtn').disabled=false;
+  swTimerId=setInterval(updateSwDisplay,250);updateSwDisplay();
+}
+function pauseStopwatch(){
+  if(videoMode){const v=getVideo();if(v&&!v.paused)v.pause();return;}
+  if(!swRunning)return;
+  swElapsed=currentTime();swRunning=false;clearInterval(swTimerId);
+  document.getElementById('swStartBtn').disabled=false;
+  document.getElementById('swPauseBtn').disabled=true;updateSwDisplay();
+}
+function resetStopwatch(){
+  if(videoMode){
+    if(!confirm('動画を最初に戻しますか？'))return;
+    const v=getVideo();if(v){v.pause();v.currentTime=0;}
+    document.getElementById('swStartBtn').disabled=false;
+    document.getElementById('swPauseBtn').disabled=true;updateSwDisplay();return;
+  }
+  if(!confirm('ストップウォッチをリセットしますか？'))return;
+  swRunning=false;swElapsed=0;clearInterval(swTimerId);swTimerId=null;
+  document.getElementById('swStartBtn').disabled=false;
+  document.getElementById('swPauseBtn').disabled=true;updateSwDisplay();
+}
+
+// ===== 記録 =====
+let thumbsUpFlashTimer=null;
+function flashThumbsUp(){
+  const el=document.getElementById('thumbsUpBtn');
+  if(!el) return;
+  el.classList.remove('flash');
+  // リフロー強制でアニメーションを再トリガー
+  void el.offsetWidth;
+  el.classList.add('flash');
+  clearTimeout(thumbsUpFlashTimer);
+  thumbsUpFlashTimer=setTimeout(()=>el.classList.remove('flash'),250);
+}
+function recordTimestamp(){
+  document.getElementById('thumbsUpBtn')?.blur();
+  const file=(document.getElementById('live_file').value||'').trim();
+  const t=Math.round(currentTime());
+  entries.push({file,time:t});
+  renderEntries();
+  flashThumbsUp();
+}
+
+// ===== SCENEカード =====
+function renderEntries(){
+  const el=document.getElementById('entries');
+  if(entries.length===0){
+    el.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;">シーンがありません</div>';
+    updatePreview();return;
+  }
+  el.innerHTML=entries.map((e,i)=>{
+    const id='sc'+i;
+    return `<div class="entry-card">
+      <div class="card-summary" onclick="toggleScene('${id}')">
+        <span class="entry-num">SCENE #${i+1}</span>
+        <span class="entry-time-disp">${fmt(e.time)}</span>
+        <span class="entry-file-disp">${escHtml(e.file||'(未設定)')}.mp4</span>
+        <div class="card-actions" onclick="event.stopPropagation()">
+          <button class="btn-jump" onclick="jumpTo(${e.time})">▶ 確認</button>
+          <button class="btn-del" onclick="removeEntry(${i})">削除</button>
+          <span class="toggle-arrow" id="arr_${id}">▶</span>
+        </div>
+      </div>
+      <div class="entry-detail collapsed" id="det_${id}" style="max-height:0">
+        <div class="entry-detail-inner">
+          <span style="font-size:11px;color:var(--text2)">ファイル:</span>
+          <span style="font-size:12px">${escHtml(e.file||'未設定')}.mp4</span>
+          <span style="font-size:11px;color:var(--text2);margin-left:8px">時刻:</span>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--accent)">${fmt(e.time)}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  updatePreview();
+}
+
+function toggleScene(id){
+  const det=document.getElementById(`det_${id}`),arr=document.getElementById(`arr_${id}`);
+  const closed=det.classList.contains('collapsed');
+  det.style.maxHeight=closed?det.scrollHeight+100+'px':'0';
+  det.classList.toggle('collapsed',!closed);
+  arr.classList.toggle('open',closed);
+}
+function toggleAllScenes(){
+  allExpanded=!allExpanded;
+  document.querySelectorAll('.entry-detail').forEach(det=>{
+    const id=det.id.replace('det_','');
+    const arr=document.getElementById(`arr_${id}`);
+    det.style.maxHeight=allExpanded?det.scrollHeight+100+'px':'0';
+    det.classList.toggle('collapsed',!allExpanded);
+    if(arr) arr.classList.toggle('open',allExpanded);
+  });
+  document.getElementById('toggleAllBtn').textContent=allExpanded?'▲ すべて折りたたむ':'▼ すべて展開';
+}
+
+function jumpTo(timeSec){
+  const v=getVideo();
+  if(!v||!v.src||!v.src.startsWith('blob:')){alert('先に動画ファイルを選択してください。');return;}
+  v.currentTime=Math.max(0,timeSec-PRE_SEC);
+  v.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function removeEntry(i){entries.splice(i,1);renderEntries();}
+function clearAll(){if(!confirm('全てリセットしますか？'))return;entries=[];renderEntries();}
+
+// ===== 手動追加 =====
+function addManualEntry(){
+  const fileBase=(document.getElementById('add_file').value||'').trim();
+  if(!fileBase){alert('ファイル名を入力してください');return;}
+  const min=parseInt(document.getElementById('add_min').value,10)||0;
+  const sec=parseInt(document.getElementById('add_sec').value,10)||0;
+  entries.push({file:fileBase,time:min*60+sec});
+  renderEntries();
+}
+
+// ===== プレビュー・出力 =====
+function updatePreview(){
+  const header='# 書式: ファイル名, タイムスタンプ（前後切り出し秒数は前7秒・後5秒で固定）';
+  const rows=entries.map(e=>`${e.file}.mp4, ${fmt(e.time)}`);
+  document.getElementById('preview').textContent=[header,...rows].join('\n');
+  if(previewOpen){const b=document.getElementById('previewBody');if(b)b.style.maxHeight=b.scrollHeight+200+'px';}
+}
+function exportTxt(){
+  if(!entries.length){alert('シーンがありません');return;}
+  const header='# 書式: ファイル名, タイムスタンプ（前後切り出し秒数は前7秒・後5秒で固定）';
+  const rows=entries.map(e=>`${e.file}.mp4, ${fmt(e.time)}`);
+  const blob=new Blob([[header,...rows].join('\n')],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='timestamps_simple.txt';a.click();
+  showToast('✅ timestamps_simple.txt を保存しました');
+}
+function importTxt(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    const lines=e.target.result.split(/\r?\n/);
+    const data=lines.filter(l=>l.trim()&&!l.trim().startsWith('#'));
+    if(!data.length){alert('有効なデータが見つかりませんでした');return;}
+    entries=[];
+    data.forEach(line=>{
+      const parts=line.split(',').map(p=>p.trim());
+      if(parts.length<2)return;
+      const fileBase=parts[0].replace(/\.mp4$/i,'');
+      const [min,sec]=parts[1].split(':').map(s=>parseInt(s,10)||0);
+      entries.push({file:fileBase,time:min*60+sec});
+    });
+    renderEntries();event.target.value='';
+    showToast(`✅ ${data.length}件を読み込みました`);
+  };
+  reader.readAsText(file,'utf-8');
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+function escHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+</script>
+</body>
+</html>
