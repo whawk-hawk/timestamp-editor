@@ -33,15 +33,25 @@ header p{font-size:11px;color:var(--text2);margin-top:4px;}
 .video-select-label{display:inline-block;background:var(--surface2);border:1px solid var(--accent);color:var(--accent);border-radius:8px;font-size:12px;font-family:'Noto Sans JP',sans-serif;padding:8px 14px;cursor:pointer;transition:background .15s;}
 .video-select-label:hover{background:rgba(79,195,247,.12);}
 .video-hint{font-size:11px;color:var(--text2);margin:6px 0 0;}
-#sharedVideo{width:100%;border-radius:8px;background:#000;max-height:380px;margin-top:10px;display:block;}
+#sharedVideo{width:100%;border-radius:8px;background:#000;max-height:380px;display:block;}
 
-/* 動画プレーヤーのラッパー（動画＋下の記録ボタン） */
+/* 動画プレーヤーのラッパー（動画＋下の自作コントロール） */
 .video-stage{display:none;margin-top:10px;}
 
-/* Good playボタン：動画の外（すぐ下）に独立配置。Safariのネイティブ動画コントロールとは絶対に重ならない */
-.thumbsup-btn{width:100%;background:var(--accent);color:#0a0f1a;font-size:26px;line-height:1;padding:14px;border-radius:var(--radius);border:none;cursor:pointer;margin-top:8px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:transform .08s,background .08s;}
-.thumbsup-btn:active{transform:scale(.97);}
-.thumbsup-btn.flash{background:#8ef0c0;}
+/* 動画フレーム：video要素＋重ねるUI（記録オーバーレイ・👍フラッシュ・ミュートボタン）の土台 */
+.video-frame{position:relative;}
+
+/* 記録オーバーレイ：動画全体を覆い、タップでrecordTimestamp()。z-indexはミュートボタンより低い */
+.video-record-overlay{position:absolute;inset:0;width:100%;height:100%;background:transparent;border:none;padding:0;margin:0;cursor:pointer;z-index:1;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+.video-record-overlay:focus{outline:none;}
+
+/* 👍フラッシュ：タップ時に右上にパッと表示してフェードアウト */
+.thumbsup-flash{position:absolute;top:10px;right:10px;font-size:34px;line-height:1;pointer-events:none;opacity:0;transform:scale(.7);filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));transition:opacity .15s ease-out,transform .15s ease-out;z-index:3;}
+.thumbsup-flash.show{opacity:1;transform:scale(1.1);transition:opacity .05s ease-out,transform .05s ease-out;}
+
+/* ミュートボタン：動画右下に独立配置。記録オーバーレイより手前（z-index高）にして操作を優先 */
+.mute-btn{position:absolute;bottom:10px;right:10px;width:38px;height:38px;border-radius:50%;background:rgba(10,15,25,.65);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:17px;cursor:pointer;z-index:2;-webkit-tap-highlight-color:transparent;touch-action:manipulation;display:flex;align-items:center;justify-content:center;}
+.mute-btn:active{background:rgba(10,15,25,.85);}
 
 /* 自作動画コントロール（Safariネイティブコントロールを使わないため自前で実装） */
 .custom-controls{background:#10141f;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:8px;}
@@ -82,7 +92,7 @@ input:focus,select:focus{border-color:var(--accent);}
 .sw-btn:disabled{opacity:.35;cursor:default;}
 
 /* Good playボタン */
-/* Good playボタンは動画プレーヤー内の thumbsup-btn に統合済み */
+/* Good playボタンは動画上の video-record-overlay（タップ全面）に統合済み */
 
 /* SCENEカード */
 .entry-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;}
@@ -167,9 +177,14 @@ input:focus,select:focus{border-color:var(--accent);}
       <div class="panel-title">🎬 動画プレーヤー</div>
       <label class="video-select-label" for="videoFileInput">📂 動画ファイルを選択（mp4）</label>
       <input type="file" id="videoFileInput" accept="video/mp4,video/*" onchange="loadVideo(event)" style="display:none">
-      <p class="video-hint">再生と連動してタイムスタンプが記録されます。SCENEの「▶ 確認」でジャンプします（−7秒）。下の「👍」ボタンで記録されます。</p>
+      <p class="video-hint">再生と連動してタイムスタンプが記録されます。SCENEの「▶ 確認」でジャンプします（−7秒）。映像をタップすると👍が記録されます。</p>
       <div class="video-stage" id="videoStage">
-        <video id="sharedVideo" playsinline webkit-playsinline muted preload="metadata"></video>
+        <div class="video-frame">
+          <video id="sharedVideo" playsinline webkit-playsinline preload="metadata"></video>
+          <button type="button" class="video-record-overlay" id="videoRecordOverlay" onclick="recordTimestamp()" aria-label="Good play"></button>
+          <span class="thumbsup-flash" id="thumbsUpFlash">👍</span>
+          <button type="button" class="mute-btn" id="muteBtn" onclick="toggleMute(event)" aria-label="音声のオン・オフ">🔊</button>
+        </div>
         <div class="custom-controls">
           <div class="cc-row">
             <button type="button" class="cc-btn" onclick="seekRelative(-10)" aria-label="10秒戻る">⏪10</button>
@@ -179,7 +194,6 @@ input:focus,select:focus{border-color:var(--accent);}
           </div>
           <input type="range" class="cc-seek" id="ccSeekBar" min="0" max="100" value="0" step="0.1">
         </div>
-        <button type="button" class="thumbsup-btn" id="thumbsUpBtn" onclick="recordTimestamp()" aria-label="Good play">👍 Good play !</button>
       </div>
     </div>
 
@@ -320,9 +334,10 @@ function loadVideo(event){
   const video=document.getElementById('sharedVideo');
   // 一部のモバイルブラウザはHTML属性だけでなくJSプロパティとしての設定も必要なため明示的にセット
   video.playsInline=true;
-  video.muted=true;
+  video.muted=false;
   video.setAttribute('playsinline','');
   video.setAttribute('webkit-playsinline','');
+  updateMuteBtn();
   if(video.src&&video.src.startsWith('blob:')) URL.revokeObjectURL(video.src);
   video.src=URL.createObjectURL(file);
   video.style.display='block';
@@ -351,6 +366,19 @@ function loadVideo(event){
   video.ontimeupdate=updateCustomControls;
 }
 function getVideo(){return document.getElementById('sharedVideo');}
+
+// ===== ミュート切り替え =====
+function toggleMute(event){
+  event?.stopPropagation();
+  const v=getVideo(); if(!v) return;
+  v.muted=!v.muted;
+  updateMuteBtn();
+}
+function updateMuteBtn(){
+  const v=getVideo(),btn=document.getElementById('muteBtn');
+  if(!v||!btn) return;
+  btn.textContent=v.muted?'🔇':'🔊';
+}
 
 // ===== 自作動画コントロール =====
 // Safariのネイティブcontrolsは使わず、再生/一時停止・シークバー・時間表示・10秒送り戻しを自前で実装
@@ -440,17 +468,17 @@ function resetStopwatch(){
 // ===== 記録 =====
 let thumbsUpFlashTimer=null;
 function flashThumbsUp(){
-  const el=document.getElementById('thumbsUpBtn');
+  const el=document.getElementById('thumbsUpFlash');
   if(!el) return;
-  el.classList.remove('flash');
+  el.classList.remove('show');
   // リフロー強制でアニメーションを再トリガー
   void el.offsetWidth;
-  el.classList.add('flash');
+  el.classList.add('show');
   clearTimeout(thumbsUpFlashTimer);
-  thumbsUpFlashTimer=setTimeout(()=>el.classList.remove('flash'),250);
+  thumbsUpFlashTimer=setTimeout(()=>el.classList.remove('show'),400);
 }
 function recordTimestamp(){
-  document.getElementById('thumbsUpBtn')?.blur();
+  document.getElementById('videoRecordOverlay')?.blur();
   const file=(document.getElementById('live_file').value||'').trim();
   const t=Math.round(currentTime());
   entries.push({file,time:t});
