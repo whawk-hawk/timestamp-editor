@@ -41,15 +41,12 @@ header p{font-size:11px;color:var(--text2);margin-top:4px;}
 /* 動画フレーム：video要素＋重ねるUI（記録オーバーレイ・👍フラッシュ・ミュートボタン）の土台 */
 .video-frame{position:relative;}
 
-/* 記録オーバーレイ：動画全体を覆い、タップでrecordTimestamp()。z-indexはミュートボタンより低い */
-.video-record-overlay{position:absolute;inset:0;width:100%;height:100%;background:transparent;border:none;padding:0;margin:0;cursor:pointer;z-index:1;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+/* 記録ボタン：動画右上に固定。タップ位置が常に同じになるため、iOS Safariの自動スクロール調整を避けられる */
+.video-record-overlay{position:absolute;top:10px;right:10px;width:44px;height:44px;border-radius:50%;background:rgba(79,195,247,.85);border:1px solid rgba(255,255,255,.35);color:#0a0f1a;font-size:20px;cursor:pointer;z-index:2;-webkit-tap-highlight-color:transparent;touch-action:manipulation;display:flex;align-items:center;justify-content:center;transition:transform .08s,background .08s;}
 .video-record-overlay:focus{outline:none;}
+.video-record-overlay:active,.video-record-overlay.flash{transform:scale(1.15);background:#8ef0c0;}
 
-/* 👍フラッシュ：タップ時に右上にパッと表示してフェードアウト */
-.thumbsup-flash{position:absolute;top:10px;right:10px;font-size:34px;line-height:1;pointer-events:none;opacity:0;transform:scale(.7);filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));transition:opacity .15s ease-out,transform .15s ease-out;z-index:3;}
-.thumbsup-flash.show{opacity:1;transform:scale(1.1);transition:opacity .05s ease-out,transform .05s ease-out;}
-
-/* ミュートボタン：動画右下に独立配置。記録オーバーレイより手前（z-index高）にして操作を優先 */
+/* ミュートボタン：動画右下に独立配置。記録ボタンとは別領域 */
 .mute-btn{position:absolute;bottom:10px;right:10px;width:38px;height:38px;border-radius:50%;background:rgba(10,15,25,.65);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:17px;cursor:pointer;z-index:2;-webkit-tap-highlight-color:transparent;touch-action:manipulation;display:flex;align-items:center;justify-content:center;}
 .mute-btn:active{background:rgba(10,15,25,.85);}
 
@@ -177,12 +174,11 @@ input:focus,select:focus{border-color:var(--accent);}
       <div class="panel-title">🎬 動画プレーヤー</div>
       <label class="video-select-label" for="videoFileInput">📂 動画ファイルを選択（mp4）</label>
       <input type="file" id="videoFileInput" accept="video/mp4,video/*" onchange="loadVideo(event)" style="display:none">
-      <p class="video-hint">再生と連動してタイムスタンプが記録されます。SCENEの「▶ 確認」でジャンプします（−7秒）。映像をタップすると👍が記録されます。</p>
+      <p class="video-hint">再生と連動してタイムスタンプが記録されます。SCENEの「▶ 確認」でジャンプします（−7秒）。映像右上の👍ボタンで記録されます。</p>
       <div class="video-stage" id="videoStage">
         <div class="video-frame">
           <video id="sharedVideo" playsinline webkit-playsinline preload="metadata"></video>
-          <button type="button" class="video-record-overlay" id="videoRecordOverlay" tabindex="-1" onclick="recordTimestamp()" aria-label="Good play"></button>
-          <span class="thumbsup-flash" id="thumbsUpFlash">👍</span>
+          <button type="button" class="video-record-overlay" id="videoRecordOverlay" tabindex="-1" onclick="recordTimestamp()" aria-label="Good play">👍</button>
           <button type="button" class="mute-btn" id="muteBtn" onclick="toggleMute(event)" aria-label="音声のオン・オフ">🔊</button>
         </div>
         <div class="custom-controls">
@@ -468,14 +464,14 @@ function resetStopwatch(){
 // ===== 記録 =====
 let thumbsUpFlashTimer=null;
 function flashThumbsUp(){
-  const el=document.getElementById('thumbsUpFlash');
+  const el=document.getElementById('videoRecordOverlay');
   if(!el) return;
-  el.classList.remove('show');
+  el.classList.remove('flash');
   // リフロー強制でアニメーションを再トリガー
   void el.offsetWidth;
-  el.classList.add('show');
+  el.classList.add('flash');
   clearTimeout(thumbsUpFlashTimer);
-  thumbsUpFlashTimer=setTimeout(()=>el.classList.remove('show'),400);
+  thumbsUpFlashTimer=setTimeout(()=>el.classList.remove('flash'),250);
 }
 function recordTimestamp(){
   document.getElementById('videoRecordOverlay')?.blur();
