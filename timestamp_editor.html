@@ -103,22 +103,10 @@ header p{font-size:11px;color:var(--text2);margin-top:3px;}
 /* ネイティブの動画コントロール（再生・音量・全画面等）が画面下端で隠れないよう、
    動画の高さをコントロールバー分（48px）差し引いて確保する */
 .video-frame.fullscreen-mode #sharedVideo{max-height:calc(var(--vvh, 100dvh) - 48px);max-width:100vw;width:auto;height:calc(100% - 48px);margin:0;border-radius:0;}
-/* overflow:hiddenのみとし、position:fixedは付けない。
-   position:fixedにするとドキュメントがスクロール不能になり、iOS Safariの
-   没入モード（URLバー・タブバーの自動非表示）のトリガー自体が働かなくなるため。
-   トレードオフとして、ボタン操作時の画面揺れ対策（スクロール固定）は弱くなる。 */
+/* position:fixedは付けずoverflow:hiddenのみとする。
+   position:fixedにするとドキュメント自体がスクロール不能になり、
+   全画面モード中の挙動が環境によって不安定になりやすいため、overflow:hiddenに留める。 */
 body.fullscreen-active{overflow:hidden;}
-
-/* スクロール誘導バナー：全画面ボタンを未スクロール状態で押した時に動画上部へ表示。
-   iOS SafariのURLバー自動非表示（没入モード）はユーザーの実スクロール操作でのみ
-   トリガーされるため、それまで全画面化を中断してこのバナーで誘導する。
-   .orient修飾子：縦画面で押された場合は「横向きにしてください」表示に切り替える
-   （スクロール誘導とは別メッセージ・別配色で、何をすべきか混同させない）。 */
-.scroll-hint-banner{display:none;position:absolute;top:10px;left:10px;right:10px;z-index:304;background:rgba(79,195,247,.16);border:1px solid var(--accent);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--text);align-items:center;gap:8px;line-height:1.4;}
-.scroll-hint-banner.show{display:flex;}
-.video-frame.fullscreen-mode .scroll-hint-banner{display:none!important;}
-.scroll-hint-banner.orient{background:rgba(255,193,7,.16);border-color:#ffc107;}
-.scroll-hint-banner .hint-icon{font-size:15px;flex-shrink:0;}
 
 /* 全画面モードを閉じるボタン */
 .fullscreen-close-btn{display:none;position:absolute;top:calc(10px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));z-index:303;background:rgba(15,15,15,.55);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:6px;font-size:12px;font-family:'Noto Sans JP',sans-serif;padding:6px 10px;cursor:pointer;touch-action:manipulation;}
@@ -434,18 +422,11 @@ input:focus,select:focus{border-color:var(--accent);}
       <div class="video-frame" id="videoFrame">
         <video id="sharedVideo" controls preload="metadata" playsinline webkit-playsinline x5-playsinline></video>
         <button type="button" class="fullscreen-close-btn" id="fullscreenCloseBtn" onclick="toggleFullscreenMode()">✕ 閉じる</button>
-        <div class="scroll-hint-banner" id="scrollHintBanner"><span class="hint-icon" id="scrollHintIcon">👇</span><span id="scrollHintText">画面を少し下にスクロールしてから、もう一度「全画面」を押してください</span></div>
         <div class="fs-time-display" id="fsTimeDisplay">00:00</div>
         <div class="fs-player-rail" id="fsPlayerRail"></div>
         <button type="button" class="video-record-overlay" id="videoRecordOverlay" tabindex="-1" onclick="recordSimpleScene()" aria-label="シーンを記録">👍</button>
       </div>
     </div>
-
-    <!-- スクロール検知用マーカー：このパネルの下端を通過した＝ユーザーが実際に
-         スクロール操作を行った、とみなす基準点。見た目には影響しない高さ1pxの透明要素。
-         IntersectionObserverで可視/不可視を監視することで、iOS SafariのURLバーが
-         消えるトリガーとなる実スクロールが発生したかどうかを確実に検知する。 -->
-    <div id="scrollProofMarker" style="height:1px;"></div>
 
     <div class="total-bar" id="totalBar">
       <span>⏱ 動画合計時間</span>
@@ -1036,97 +1017,7 @@ let fullscreenActive = false;
 let videoFrameOriginalParent = null;
 let videoFrameOriginalNextSibling = null;
 
-// ===== 全画面化の事前条件チェック（横向き → 実際にスクロールしたか の順） =====
-// iOSのURLバー/タブバーは、ユーザーが実際にスクロールしてある程度の量が動かないと
-// 引っ込まない（=没入モードに入らない）。visualViewportの高さ差からバーの状態を
-// 「推測」する方式は、端末やSafariのバージョンによって閾値がブレて確実性に欠ける。
-// そこで、動画パネルの直後に高さ1pxの目印要素(#scrollProofMarker)を置き、
-// IntersectionObserverでその要素が画面内に入ったかどうかを直接監視する。
-// これは「実際にその位置までスクロールが発生したか」を保証する確実な判定であり、
-// 要素が画面外に出た（=上にスクロールし戻した）場合も自動的に false に戻るため、
-// 「一度消えたURLバーが再び現れる」逆方向の操作も正しく追従できる。
-let hasScrolledPastMarker = false;
-const scrollProofMarkerEl = document.getElementById('scrollProofMarker');
-if (scrollProofMarkerEl && 'IntersectionObserver' in window) {
-  const scrollProofObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      hasScrolledPastMarker = entry.isIntersecting;
-      if (hasScrolledPastMarker) {
-        if (watchingScrollHint) hideScrollHintBanner();
-      } else if (watchingScrollHint && isLandscapeOrientation()) {
-        showScrollHintBanner('scroll');
-      }
-    });
-  }, { threshold: 0 });
-  scrollProofObserver.observe(scrollProofMarkerEl);
-} else {
-  // IntersectionObserver非対応環境ではチェックをスキップ（旧ブラウザ救済）
-  hasScrolledPastMarker = true;
-}
-
-function showScrollHintBanner(kind) {
-  const banner = document.getElementById('scrollHintBanner');
-  const icon = document.getElementById('scrollHintIcon');
-  const text = document.getElementById('scrollHintText');
-  if (!banner) return;
-  if (kind === 'orientation') {
-    banner.classList.add('orient');
-    if (icon) icon.textContent = '🔄';
-    if (text) text.textContent = '端末を横向きにしてから、もう一度「全画面」を押してください';
-  } else {
-    banner.classList.remove('orient');
-    if (icon) icon.textContent = '👇';
-    if (text) text.textContent = '画面を少し下にスクロールしてから、もう一度「全画面」を押してください';
-  }
-  banner.classList.add('show');
-}
-function hideScrollHintBanner() {
-  const banner = document.getElementById('scrollHintBanner');
-  if (banner) banner.classList.remove('show');
-}
-function isLandscapeOrientation() {
-  return window.matchMedia('(orientation: landscape)').matches;
-}
-// PC（マウス操作・タッチ非対応）かどうかの判定。
-// スクロール誘導・横向き誘導はiOS SafariのURLバー自動非表示対策が目的のスマホ専用ロジックのため、
-// PCではこの判定がtrueの間、誘導ステップ自体をスキップして即座に全画面化する。
-function isPcEnvironment() {
-  return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-}
-
-// ユーザーが全画面ボタンを押して「スクロールしてください」案内を一度でも見たかどうか。
-// trueの間は、IntersectionObserver側がスクロール状態の変化（消えた/再び現れた の両方向）
-// に合わせてバナー表示を自動で追従させる。全画面化が成功した時点でfalseに戻す。
-let watchingScrollHint = false;
-
-// 向きが変わった場合の案内出し分け
-window.addEventListener('orientationchange', () => {
-  if (!isLandscapeOrientation()) return;
-  if (watchingScrollHint) {
-    if (hasScrolledPastMarker) hideScrollHintBanner();
-    else showScrollHintBanner('scroll');
-  } else {
-    hideScrollHintBanner();
-  }
-});
-
 function toggleFullscreenMode() {
-  // 既に全画面表示中の「閉じる」操作は無条件で許可する（ガード対象は開始時のみ）
-  // PC（マウス操作）では、スマホ向けのスクロール誘導・横向き誘導は不要なので丸ごとスキップする
-  if (!fullscreenActive && !isPcEnvironment()) {
-    if (!isLandscapeOrientation()) {
-      watchingScrollHint = false;
-      showScrollHintBanner('orientation');
-      return;
-    }
-    if (!hasScrolledPastMarker) {
-      watchingScrollHint = true;
-      showScrollHintBanner('scroll');
-      return;
-    }
-  }
-  watchingScrollHint = false;
-  hideScrollHintBanner();
   fullscreenActive = !fullscreenActive;
   const frame = document.getElementById('videoFrame');
   if (frame) {
