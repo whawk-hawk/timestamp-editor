@@ -333,6 +333,11 @@ body.fullscreen-active .bottom-bar{display:none;}
       </div>
     </div>
 
+    <!-- スクロール検知用マーカー：このパネルの下端を通過した＝ユーザーが実際に
+         スクロール操作を行った、とみなす基準点。見た目には影響しない高さ1pxの透明要素。
+         IntersectionObserverで可視/不可視を監視することで、iOS SafariのURLバーが
+         消えるトリガーとなる実スクロールが発生したかどうかを確実に検知する。 -->
+    <div id="scrollProofMarker" style="height:1px;"></div>
 
     <div class="total-bar" id="totalBar">
       <span>⏱ 動画合計時間</span>
@@ -713,19 +718,32 @@ let fullscreenActive = false;
 let videoFrameOriginalParent = null;
 let videoFrameOriginalNextSibling = null;
 
-// ===== 全画面化の事前条件チェック（横向き → URLバーが消えているか の順） =====
+// ===== 全画面化の事前条件チェック（横向き → 実際にスクロールしたか の順） =====
 // iOSのURLバー/タブバーは、ユーザーが実際にスクロールしてある程度の量が動かないと
-// 引っ込まない（=没入モードに入らない）。逆に、一度引っ込んでも上にスクロールし
-// 戻せば再び現れる。つまり「過去に一度でもスクロールしたか」という一回きりのフラグでは
-// 「今まさにURLバーが消えているか」を表せない。
-// そこで、ボタンを押すたびに毎回その場で window.innerHeight（レイアウトビューポート＝
-// バーを含まない高さ）と window.visualViewport.height（実際に見えている高さ）を比較し、
-// 差が小さければ「バーは消えている」とみなす。差が大きいままならスクロールを再度促す。
-const URL_BAR_HEIGHT_THRESHOLD = 40; // この値(px)以上の差があれば、バーがまだ残っていると判断
-function isUrlBarHidden() {
-  if (!window.visualViewport) return true; // visualViewport非対応環境ではチェックをスキップ
-  const diff = window.innerHeight - window.visualViewport.height;
-  return diff < URL_BAR_HEIGHT_THRESHOLD;
+// 引っ込まない（=没入モードに入らない）。visualViewportの高さ差からバーの状態を
+// 「推測」する方式は、端末やSafariのバージョンによって閾値がブレて確実性に欠ける。
+// そこで、動画パネルの直後に高さ1pxの目印要素(#scrollProofMarker)を置き、
+// IntersectionObserverでその要素が画面内に入ったかどうかを直接監視する。
+// これは「実際にその位置までスクロールが発生したか」を保証する確実な判定であり、
+// 要素が画面外に出た（=上にスクロールし戻した）場合も自動的に false に戻るため、
+// 「一度消えたURLバーが再び現れる」逆方向の操作も正しく追従できる。
+let hasScrolledPastMarker = false;
+const scrollProofMarkerEl = document.getElementById('scrollProofMarker');
+if (scrollProofMarkerEl && 'IntersectionObserver' in window) {
+  const scrollProofObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      hasScrolledPastMarker = entry.isIntersecting;
+      if (hasScrolledPastMarker) {
+        if (watchingScrollHint) hideScrollHintBanner();
+      } else if (watchingScrollHint && isLandscapeOrientation()) {
+        showScrollHintBanner('scroll');
+      }
+    });
+  }, { threshold: 0 });
+  scrollProofObserver.observe(scrollProofMarkerEl);
+} else {
+  // IntersectionObserver非対応環境ではチェックをスキップ（旧ブラウザ救済）
+  hasScrolledPastMarker = true;
 }
 
 function showScrollHintBanner(kind) {
@@ -753,34 +771,20 @@ function isLandscapeOrientation() {
 }
 
 // ユーザーが全画面ボタンを押して「スクロールしてください」案内を一度でも見たかどうか。
-// trueの間は、以後のスクロール操作（バーが消える・再び現れる の両方向）に合わせて
-// バナーの表示状態を追従させる。下スクロールでバーが消えたあと、上スクロールで
-// バーが復活した場合も、ボタンを押し直さなくてもその場で再案内されるようにするため。
-// 全画面化が成功した時点でこの追従は不要になるのでfalseに戻す。
+// trueの間は、IntersectionObserver側がスクロール状態の変化（消えた/再び現れた の両方向）
+// に合わせてバナー表示を自動で追従させる。全画面化が成功した時点でfalseに戻す。
 let watchingScrollHint = false;
 
-// 向きが変わったら「横向きにしてください」バナーは役目を終えるので消す。
-// 横向きになった直後もまだURLバーが残っていることが多いため、案内を見たことが
-// あるユーザーには引き続きスクロール案内を出す。
+// 向きが変わった場合の案内出し分け
 window.addEventListener('orientationchange', () => {
   if (!isLandscapeOrientation()) return;
   if (watchingScrollHint) {
-    if (isUrlBarHidden()) hideScrollHintBanner();
+    if (hasScrolledPastMarker) hideScrollHintBanner();
     else showScrollHintBanner('scroll');
   } else {
     hideScrollHintBanner();
   }
 });
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', () => {
-    if (!watchingScrollHint || !isLandscapeOrientation()) return;
-    // URLバーが引っ込んだ（=visualViewportが広がった）→ バナーを消す
-    // URLバーが再び現れた（=visualViewportが縮んだ）→ バナーを出し直す
-    // ボタンを押し直さなくても、スクロール操作だけで案内が常に現在の状態に追従する。
-    if (isUrlBarHidden()) hideScrollHintBanner();
-    else showScrollHintBanner('scroll');
-  });
-}
 
 function toggleFullscreenMode() {
   // 既に全画面表示中の「閉じる」操作は無条件で許可する（ガード対象は開始時のみ）
@@ -790,7 +794,7 @@ function toggleFullscreenMode() {
       showScrollHintBanner('orientation');
       return;
     }
-    if (!isUrlBarHidden()) {
+    if (!hasScrolledPastMarker) {
       watchingScrollHint = true;
       showScrollHintBanner('scroll');
       return;
