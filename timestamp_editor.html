@@ -713,16 +713,20 @@ let fullscreenActive = false;
 let videoFrameOriginalParent = null;
 let videoFrameOriginalNextSibling = null;
 
-// ===== 全画面化の事前条件チェック（横向き → スクロール済み の順） =====
-// iOSのURLバー自動非表示（没入モード）はユーザーの実スクロール操作でのみ発火するため、
-// 一度もページがスクロールされていない状態で全画面化しても、URLバーが居座ったままになる。
-// そのため「横向きであること」「スクロール済みであること」の両方を満たすまでは
-// 全画面化を中断し、バナーで次に取るべき行動だけを案内する。
-let hasUserScrolled = false;
-window.addEventListener('scroll', () => {
-  hasUserScrolled = true;
-  hideScrollHintBanner();
-}, { passive: true });
+// ===== 全画面化の事前条件チェック（横向き → URLバーが消えているか の順） =====
+// iOSのURLバー/タブバーは、ユーザーが実際にスクロールしてある程度の量が動かないと
+// 引っ込まない（=没入モードに入らない）。逆に、一度引っ込んでも上にスクロールし
+// 戻せば再び現れる。つまり「過去に一度でもスクロールしたか」という一回きりのフラグでは
+// 「今まさにURLバーが消えているか」を表せない。
+// そこで、ボタンを押すたびに毎回その場で window.innerHeight（レイアウトビューポート＝
+// バーを含まない高さ）と window.visualViewport.height（実際に見えている高さ）を比較し、
+// 差が小さければ「バーは消えている」とみなす。差が大きいままならスクロールを再度促す。
+const URL_BAR_HEIGHT_THRESHOLD = 40; // この値(px)以上の差があれば、バーがまだ残っていると判断
+function isUrlBarHidden() {
+  if (!window.visualViewport) return true; // visualViewport非対応環境ではチェックをスキップ
+  const diff = window.innerHeight - window.visualViewport.height;
+  return diff < URL_BAR_HEIGHT_THRESHOLD;
+}
 
 function showScrollHintBanner(kind) {
   const banner = document.getElementById('scrollHintBanner');
@@ -754,6 +758,9 @@ window.addEventListener('orientationchange', () => {
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', () => {
     if (isLandscapeOrientation()) hideScrollHintBanner();
+    // URLバーが引っ込んだ（=visualViewportが広がった）瞬間にバナーを消す。
+    // 逆に再び現れた場合は、次にボタンが押された時点で改めてtoggleFullscreenMode内が判定する。
+    if (isUrlBarHidden()) hideScrollHintBanner();
   });
 }
 
@@ -764,7 +771,7 @@ function toggleFullscreenMode() {
       showScrollHintBanner('orientation');
       return;
     }
-    if (!hasUserScrolled) {
+    if (!isUrlBarHidden()) {
       showScrollHintBanner('scroll');
       return;
     }
