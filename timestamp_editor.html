@@ -90,7 +90,7 @@ body.fullscreen-active{overflow:hidden;}
 .video-frame.fullscreen-mode .fs-player-rail{display:flex;}
 .fs-player-btn{display:flex;align-items:center;background:rgba(15,15,15,.5);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-family:'Noto Sans JP',sans-serif;padding:4px 8px;cursor:pointer;white-space:nowrap;touch-action:manipulation;pointer-events:auto;}
 .fs-player-btn .fs-key{font-size:11px;color:rgba(255,255,255,.55);min-width:13px;text-align:center;flex-shrink:0;}
-.fs-player-btn .fs-name{font-size:14px;margin-left:6px;}
+.fs-player-btn .fs-name{font-size:14px;margin-left:6px;display:inline-block;width:7em;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .fs-player-btn:active{background:rgba(79,195,247,.5);}
 .fs-player-btn.tapped{background:rgba(79,195,247,.6);border-color:var(--accent);}
 
@@ -127,14 +127,28 @@ body.fullscreen-active{overflow:hidden;}
 .sw-btn.pause{background:var(--accent);color:#0a0f1a;}
 .sw-btn:disabled{opacity:.35;cursor:default;}
 
+/* スマホ表示（760px以下）：ストップウォッチの占有高さを抑えるため、
+   時間表示・リセット・スタート・停止を横一列にまとめてコンパクト化する。
+   操作自体は変わらず常時可能（非表示にはしない）。 */
+@media(max-width:760px){
+  #stopwatchPanel{padding:8px 10px;}
+  #stopwatchPanel .sw-row{display:flex;align-items:center;gap:8px;}
+  #stopwatchPanel .sw-display-row{display:flex;align-items:center;gap:6px;margin-bottom:0;flex-shrink:0;}
+  #stopwatchPanel .sw-display{font-size:15px;text-align:left;}
+  #stopwatchPanel .sw-reset-inline{padding:3px 7px;font-size:10px;}
+  #stopwatchPanel .sw-controls{display:flex;gap:6px;flex:1;}
+  #stopwatchPanel .sw-btn{padding:6px 8px;font-size:12px;white-space:nowrap;}
+}
+
 /* 選手グリッド */
 .section-label{font-size:11px;color:var(--text2);letter-spacing:.06em;margin:12px 0 6px;}
 .quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
-.quick-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;padding:12px 6px;cursor:pointer;transition:all .12s;text-align:center;}
+.quick-btn{display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;padding:10px 8px;cursor:pointer;transition:all .12s;text-align:left;}
 .quick-btn:active{transform:scale(.96);}
 .quick-btn.tapped{background:rgba(79,195,247,.2);border-color:var(--accent);color:var(--accent);}
-.quick-btn .key-hint{display:none;font-size:10px;color:var(--text2);margin-top:2px;}
-@media(min-width:761px){.quick-btn .key-hint{display:block;}}
+.quick-btn .key-hint{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:18px;height:18px;margin-right:7px;font-size:11px;font-weight:700;color:var(--text2);background:rgba(255,255,255,.06);border-radius:4px;}
+.quick-btn.tapped .key-hint{color:var(--accent);background:rgba(79,195,247,.18);}
+.quick-btn .player-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 /* SCENEカード */
 .entry-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;transition:border-color .15s;}
@@ -363,14 +377,16 @@ body.fullscreen-active .bottom-bar{display:none;}
   <div>
 
     <!-- ストップウォッチ -->
-    <div class="panel" style="text-align:center">
-      <div class="sw-display-row">
-        <div class="sw-display" id="stopwatchDisplay">00:00</div>
-        <button class="sw-reset-inline" onclick="resetStopwatch()">↺ リセット</button>
-      </div>
-      <div class="sw-controls">
-        <button class="sw-btn start" id="swStartBtn" onclick="startStopwatch()">▶ スタート</button>
-        <button class="sw-btn pause" id="swPauseBtn" onclick="pauseStopwatch()" disabled>⏸ 停止</button>
+    <div class="panel" id="stopwatchPanel" style="text-align:center">
+      <div class="sw-row">
+        <div class="sw-display-row">
+          <div class="sw-display" id="stopwatchDisplay">00:00</div>
+          <button class="sw-reset-inline" onclick="resetStopwatch()">↺ リセット</button>
+        </div>
+        <div class="sw-controls">
+          <button class="sw-btn start" id="swStartBtn" onclick="startStopwatch()">▶ スタート</button>
+          <button class="sw-btn pause" id="swPauseBtn" onclick="pauseStopwatch()" disabled>⏸ 停止</button>
+        </div>
       </div>
     </div>
 
@@ -592,8 +608,8 @@ function renderPlayerGrid() {
   if (grid) {
     grid.innerHTML = players.map((p, i) => {
       const key = keyLabelForIndex(i);
-      const keyHint = key ? `<span class="key-hint">${key}</span>` : '';
-      return `<button type="button" class="quick-btn" data-player-index="${i}" onclick="tapPlayer('${escapeHtml(p)}',this)">${escapeHtml(p)}${keyHint}</button>`;
+      const keyHint = `<span class="key-hint">${key}</span>`;
+      return `<button type="button" class="quick-btn" data-player-index="${i}" onclick="tapPlayer('${escapeHtml(p)}',this)">${keyHint}<span class="player-name">${escapeHtml(p)}</span></button>`;
     }).join('');
   }
   if (rail) {
@@ -974,10 +990,10 @@ function addEntry(prefill) {
             <select id="ts_sec_${id}" onchange="updateSummary(${id});updatePreview()">${makeSeconds()}</select>
           </div></div>
         <div class="field"><label>前の切り出し秒数 <span class="sec-val" id="pre_val_${id}">${PRE_SEC}</span>秒</label>
-          <div class="sec-wrap"><input type="range" min="0" max="30" value="${PRE_SEC}" id="pre_${id}"
+          <div class="sec-wrap"><input type="range" min="0" max="15" value="${PRE_SEC}" id="pre_${id}"
             oninput="document.getElementById('pre_val_${id}').textContent=this.value;updatePreview()"></div></div>
         <div class="field"><label>後の切り出し秒数 <span class="sec-val" id="post_val_${id}">${POST_SEC}</span>秒</label>
-          <div class="sec-wrap"><input type="range" min="0" max="30" value="${POST_SEC}" id="post_${id}"
+          <div class="sec-wrap"><input type="range" min="0" max="15" value="${POST_SEC}" id="post_${id}"
             oninput="document.getElementById('post_val_${id}').textContent=this.value;updatePreview()"></div></div>
         <div class="field"><label>選手名</label><div id="player_wrap_${id}">${makePlayerSelect(id)}</div></div>
       </div>
