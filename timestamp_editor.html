@@ -59,13 +59,21 @@ header p{font-size:11px;color:var(--text2);margin-top:3px;}
 .input-mode-tab{background:none;border:none;color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;padding:6px 12px;border-radius:6px;cursor:pointer;white-space:nowrap;transition:all .15s;}
 .input-mode-tab.active{background:var(--accent);color:#0a0f1a;}
 .input-mode-tab:not(.active):hover{color:var(--text);}
-.camera-select-wrap{display:none;align-items:center;gap:6px;flex-wrap:wrap;}
+.camera-select-wrap{display:none;flex-direction:column;gap:6px;flex-wrap:wrap;}
 .camera-select-wrap.show{display:flex;}
 .file-select-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .file-select-wrap.hide{display:none;}
 .camera-refresh-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;font-size:11px;font-family:'Noto Sans JP',sans-serif;padding:7px 10px;cursor:pointer;}
 .camera-refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
-#cameraSelect{width:auto;min-width:160px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:12px;padding:7px 10px;cursor:pointer;}
+#cameraSelect,#recordCameraSelect{width:auto;min-width:160px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:12px;padding:7px 10px;cursor:pointer;}
+
+/* ライブ映像タブ内のサブタブ：見るだけ(OBS) / アプリ内録画(iPhone) */
+.live-sub-tabs{display:flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px;width:fit-content;}
+.live-sub-tab{background:none;border:none;color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:11px;font-weight:700;padding:6px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.live-sub-tab.active{background:var(--accent);color:#0a0f1a;}
+.live-sub-tab:not(.active):hover{color:var(--text);}
+.live-obs-controls,.live-record-controls{display:none;align-items:center;gap:6px;flex-wrap:wrap;}
+.live-obs-controls.show,.live-record-controls.show{display:flex;}
 
 /* ライブモード中の操作ロック注意書き */
 .live-lock-note{display:none;font-size:11px;color:var(--red);background:rgba(255,82,82,.08);border:1px solid var(--red);border-radius:8px;padding:8px 10px;margin-bottom:8px;}
@@ -89,6 +97,27 @@ header p{font-size:11px;color:var(--text2);margin-top:3px;}
 .video-record-overlay:focus{outline:none;}
 .video-record-overlay:active,.video-record-overlay.flash{transform:scale(1.15);background:#8ef0c0;}
 
+/* アプリ内録画モード：録画開始ボタン（大きめの赤丸、動画中央下に配置） */
+.rec-start-btn,.rec-stop-btn{display:none;position:absolute;bottom:16px;left:50%;transform:translateX(-50%);width:64px;height:64px;border-radius:50%;cursor:pointer;z-index:3;-webkit-tap-highlight-color:transparent;touch-action:manipulation;align-items:center;justify-content:center;font-size:26px;transition:transform .08s;}
+.rec-start-btn{background:var(--red);border:3px solid rgba(255,255,255,.7);color:#fff;}
+.rec-start-btn.show{display:flex;}
+.rec-start-btn:active{transform:translateX(-50%) scale(1.08);}
+.rec-stop-btn{background:#fff;border:3px solid var(--red);color:var(--red);}
+.rec-stop-btn.show{display:flex;}
+.rec-stop-btn:active{transform:translateX(-50%) scale(1.08);}
+
+/* 録画中のREC表示（点滅ドット＋経過時間） */
+.rec-status-badge{display:none;position:absolute;top:10px;left:10px;align-items:center;gap:6px;background:rgba(0,0,0,.55);border-radius:6px;padding:5px 10px;z-index:3;font-family:'Share Tech Mono',monospace;font-size:13px;font-weight:700;color:#fff;}
+.rec-status-badge.show{display:flex;}
+.rec-dot{width:9px;height:9px;border-radius:50%;background:var(--red);animation:recBlink 1s infinite;}
+@keyframes recBlink{0%,100%{opacity:1;}50%{opacity:.25;}}
+
+/* 録画停止後：保存／撮り直しボタン（動画下に横並び表示） */
+.rec-save-btn,.rec-retake-btn{display:none;position:absolute;bottom:16px;left:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:12px;padding:9px 14px;cursor:pointer;z-index:3;white-space:nowrap;touch-action:manipulation;}
+.rec-save-btn.show{display:inline-flex;transform:translateX(calc(-100% - 5px));border-color:var(--accent);color:var(--accent);}
+.rec-retake-btn.show{display:inline-flex;transform:translateX(5px);}
+.rec-save-btn:hover,.rec-retake-btn:hover{background:rgba(79,195,247,.12);}
+
 /* 動画プレーヤー見出し行：見出し/選択ボタン/全画面ボタン/説明文の縦積み。 */
 .player-head-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
 .player-head-main{flex:1;min-width:0;}
@@ -109,8 +138,16 @@ header p{font-size:11px;color:var(--text2);margin-top:3px;}
 .video-frame.fullscreen-mode{position:fixed;inset:0;z-index:2147483000;isolation:isolate;background:#000;display:flex;align-items:center;justify-content:center;
   height:100dvh;height:var(--vvh, 100dvh);}
 /* ネイティブの動画コントロール（再生・音量・全画面等）が画面下端で隠れないよう、
-   動画の高さをコントロールバー分（48px）差し引いて確保する */
+   動画の高さをコントロールバー分（48px）差し引いて確保する。
+   ただしアプリ内録画のプレビュー／録画中はネイティブcontrolsを表示しない（controls属性なし）ため、
+   body.fs-no-controls 修飾時は差し引かずビューポート全体を使う。 */
 .video-frame.fullscreen-mode #sharedVideo{max-height:calc(var(--vvh, 100dvh) - 48px);max-width:100vw;width:auto;height:calc(100% - 48px);margin:0;border-radius:0;}
+body.fs-no-controls .video-frame.fullscreen-mode #sharedVideo{max-height:var(--vvh, 100dvh);height:100%;}
+/* 全画面時：アプリ内録画の各種ボタンはコントロールバーがない分、画面下端ギリギリまで使えるよう
+   safe-area-inset-bottomのみ加味して配置する */
+.video-frame.fullscreen-mode .rec-start-btn,.video-frame.fullscreen-mode .rec-stop-btn{bottom:calc(20px + env(safe-area-inset-bottom));width:72px;height:72px;font-size:30px;}
+.video-frame.fullscreen-mode .rec-save-btn,.video-frame.fullscreen-mode .rec-retake-btn{bottom:calc(24px + env(safe-area-inset-bottom));}
+.video-frame.fullscreen-mode .rec-status-badge{top:calc(10px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right));left:auto;}
 /* position:fixedは付けずoverflow:hiddenのみとする。
    position:fixedにするとドキュメント自体がスクロール不能になり、
    全画面モード中の挙動が環境によって不安定になりやすいため、overflow:hiddenに留める。 */
@@ -418,10 +455,23 @@ input:focus,select:focus{border-color:var(--accent);}
               <button type="button" class="fullscreen-toggle-btn" id="fullscreenToggleBtn" onclick="toggleFullscreenMode()"><span>⛶</span><span class="fs-btn-label">全画面</span></button>
             </div>
             <div class="camera-select-wrap" id="cameraSelectWrap">
-              <select id="cameraSelect" onchange="onCameraSelectChange()">
-                <option value="">カメラを選択…</option>
-              </select>
-              <button type="button" class="camera-refresh-btn" onclick="refreshCameraList()">🔄 一覧更新</button>
+              <div class="live-sub-tabs" id="liveSubTabs">
+                <button type="button" class="live-sub-tab active" id="liveSubTabObs" onclick="setLiveSubMode('obs')">👁 見るだけ（OBS）</button>
+                <button type="button" class="live-sub-tab" id="liveSubTabRecord" onclick="setLiveSubMode('record')">⏺ アプリ内録画（iPhone）</button>
+              </div>
+              <div class="live-obs-controls" id="liveObsControls">
+                <select id="cameraSelect" onchange="onCameraSelectChange()">
+                  <option value="">カメラを選択…</option>
+                </select>
+                <button type="button" class="camera-refresh-btn" onclick="refreshCameraList()">🔄 一覧更新</button>
+              </div>
+              <div class="live-record-controls" id="liveRecordControls">
+                <select id="recordCameraSelect" onchange="onRecordCameraSelectChange()">
+                  <option value="">カメラを選択…</option>
+                </select>
+                <button type="button" class="camera-refresh-btn" onclick="refreshRecordCameraList()">🔄 一覧更新</button>
+                <button type="button" class="fullscreen-toggle-btn" id="fullscreenToggleBtnRecord" onclick="toggleFullscreenMode()"><span>⛶</span><span class="fs-btn-label">全画面</span></button>
+              </div>
             </div>
           </div>
           <p class="video-hint" id="videoHintText">再生と連動してタイムスタンプが記録されます。SCENEの「▶ 確認」でジャンプします。</p>
@@ -433,6 +483,13 @@ input:focus,select:focus{border-color:var(--accent);}
         <div class="fs-time-display" id="fsTimeDisplay">00:00</div>
         <div class="fs-player-rail" id="fsPlayerRail"></div>
         <button type="button" class="video-record-overlay" id="videoRecordOverlay" tabindex="-1" onclick="recordSimpleScene()" aria-label="シーンを記録">👍</button>
+
+        <!-- アプリ内録画モード専用：録画開始/停止ボタン・REC表示・保存ボタン -->
+        <div class="rec-status-badge" id="recStatusBadge"><span class="rec-dot"></span><span id="recStatusText">REC</span></div>
+        <button type="button" class="rec-start-btn" id="recStartBtn" onclick="startCameraRecording()" aria-label="録画開始">⏺</button>
+        <button type="button" class="rec-stop-btn" id="recStopBtn" onclick="stopCameraRecording()" aria-label="録画停止">⏹</button>
+        <button type="button" class="rec-save-btn" id="recSaveBtn" onclick="saveRecordedVideo()">💾 動画を保存（ファイルに保存）</button>
+        <button type="button" class="rec-retake-btn" id="recRetakeBtn" onclick="retakeCameraRecording()">🔄 撮り直す</button>
       </div>
     </div>
 
@@ -627,7 +684,8 @@ function setRecordMode(mode) {
 // （ファイル選択済み、またはライブ映像接続済み）」の両方を満たす時だけ表示する。
 // 動画がない状態で記録できてしまうと誤操作のもとになるため。
 function updateRecordOverlayVisibility() {
-  const videoReady = document.getElementById('fullscreenToggleBtn')?.classList.contains('video-ready');
+  const videoReady = document.getElementById('fullscreenToggleBtn')?.classList.contains('video-ready')
+    || document.getElementById('fullscreenToggleBtnRecord')?.classList.contains('video-ready');
   document.getElementById('videoRecordOverlay').classList.toggle('show', recordMode === 'simple' && !!videoReady);
 }
 
@@ -828,9 +886,16 @@ function showFsLikeReaction(btnEl) {
 let swElapsed = 0, swRunning = false, swStartTimestamp = 0, swTimerId = null;
 let videoMode = false;       // true: 動画ファイルの再生位置をタイマー基準にする（ファイルモードのみ）
 let inputMode = 'file';      // 'file' | 'live'
-let currentStream = null;    // ライブモードで使用中のMediaStream
+let liveSubMode = 'obs';     // 'obs'（見るだけ・OBS仮想カメラ） | 'record'（アプリ内録画・iPhone単体）
+let currentStream = null;    // ライブモード（obs/record共通）で使用中のMediaStream（プレビュー用）
 
-// ----- モード切替 -----
+// ----- 録画（アプリ内録画モード）専用の状態 -----
+let mediaRecorder = null;       // MediaRecorderインスタンス
+let recordedChunks = [];        // 録画データの断片
+let recordedBlobUrl = null;     // 録画完了後、確認再生用に作ったBlob URL
+let recordState = 'idle';       // 'idle'（プレビューのみ） | 'recording'（録画中） | 'stopped'（録画停止・確認中）
+
+// ----- モード切替（動画ファイル／ライブ映像） -----
 function setInputMode(mode) {
   if (mode === inputMode) return;
   const video = getVideoEl();
@@ -839,9 +904,9 @@ function setInputMode(mode) {
   if (inputMode === 'file' && video?.src?.startsWith('blob:')) {
     URL.revokeObjectURL(video.src);
   }
-  if (inputMode === 'live' && currentStream) {
-    currentStream.getTracks().forEach(t => t.stop());
-    currentStream = null;
+  if (inputMode === 'live') {
+    stopCameraStream();
+    resetRecordingState();
   }
 
   inputMode = mode;
@@ -851,6 +916,7 @@ function setInputMode(mode) {
   video.load();
   video.style.display = 'none';
   document.getElementById('fullscreenToggleBtn')?.classList.remove('video-ready');
+  document.getElementById('fullscreenToggleBtnRecord')?.classList.remove('video-ready');
   videoMode = false;
   swRunning = false; swElapsed = 0; clearInterval(swTimerId); swTimerId = null;
   document.getElementById('swStartBtn').disabled = false;
@@ -876,12 +942,81 @@ function setInputMode(mode) {
     document.getElementById('videoHintText').textContent =
       '再生と連動してタイムスタンプが記録されます。SCENEの「▶ 確認」でジャンプします。';
   } else {
+    // ライブ映像タブを開いたら、前回選んでいたサブモードのUIを再表示する
+    applyLiveSubModeUI();
+    if (liveSubMode === 'obs') {
+      video.removeAttribute('controls');
+      video.setAttribute('autoplay', '');
+      video.setAttribute('muted', '');
+      document.getElementById('videoHintText').textContent =
+        'OBSの「仮想カメラ」を選択すると、ここにライブ映像が表示されます（見るだけ・操作はできません）。スタートは Num+、ストップは Num- でOBSの録画と同時に行えます。';
+      if (navigator.mediaDevices?.enumerateDevices) refreshCameraList();
+    } else {
+      setupRecordModeHint();
+      if (navigator.mediaDevices?.enumerateDevices) refreshRecordCameraList();
+    }
+  }
+}
+
+// ----- ライブ映像タブ内のサブモード切替（見るだけOBS／アプリ内録画iPhone） -----
+function setLiveSubMode(mode) {
+  if (mode === liveSubMode) return;
+  // 切替前の後始末：カメラ・録画を止めてから切り替える
+  stopCameraStream();
+  resetRecordingState();
+  const video = getVideoEl();
+  video.pause();
+  video.removeAttribute('src');
+  video.srcObject = null;
+  video.load();
+  video.style.display = 'none';
+  document.getElementById('fullscreenToggleBtn')?.classList.remove('video-ready');
+  document.getElementById('fullscreenToggleBtnRecord')?.classList.remove('video-ready');
+  videoMode = false;
+  swRunning = false; swElapsed = 0; clearInterval(swTimerId); swTimerId = null;
+  document.getElementById('swStartBtn').disabled = false;
+  document.getElementById('swPauseBtn').disabled = true;
+  updateStopwatchDisplay();
+  setSceneListLocked(false);
+  updateRecordOverlayVisibility();
+  const cameraSelectEl = document.getElementById('cameraSelect');
+  if (cameraSelectEl) cameraSelectEl.value = '';
+  const recordCameraSelectEl = document.getElementById('recordCameraSelect');
+  if (recordCameraSelectEl) recordCameraSelectEl.value = '';
+
+  liveSubMode = mode;
+  applyLiveSubModeUI();
+
+  if (mode === 'obs') {
     video.removeAttribute('controls');
     video.setAttribute('autoplay', '');
     video.setAttribute('muted', '');
     document.getElementById('videoHintText').textContent =
       'OBSの「仮想カメラ」を選択すると、ここにライブ映像が表示されます（見るだけ・操作はできません）。スタートは Num+、ストップは Num- でOBSの録画と同時に行えます。';
     if (navigator.mediaDevices?.enumerateDevices) refreshCameraList();
+  } else {
+    setupRecordModeHint();
+    if (navigator.mediaDevices?.enumerateDevices) refreshRecordCameraList();
+  }
+}
+
+function applyLiveSubModeUI() {
+  document.getElementById('liveSubTabObs')?.classList.toggle('active', liveSubMode === 'obs');
+  document.getElementById('liveSubTabRecord')?.classList.toggle('active', liveSubMode === 'record');
+  document.getElementById('liveObsControls')?.classList.toggle('show', liveSubMode === 'obs');
+  document.getElementById('liveRecordControls')?.classList.toggle('show', liveSubMode === 'record');
+}
+
+function setupRecordModeHint() {
+  document.getElementById('videoHintText').textContent =
+    'iPhone本体のカメラで録画します。「⏺」で録画とタイムスタンプ計測が同時に始まります。停止後は内容を確認してファイルに保存できます。';
+}
+
+// 現在表示中のMediaStream（OBSプレビュー／録画プレビュー共通）を停止する
+function stopCameraStream() {
+  if (currentStream) {
+    currentStream.getTracks().forEach(t => t.stop());
+    currentStream = null;
   }
 }
 
@@ -951,7 +1086,10 @@ async function refreshCameraList() {
   }
 }
 if (navigator.mediaDevices?.enumerateDevices) {
-  navigator.mediaDevices.addEventListener?.('devicechange', () => { if (inputMode === 'live') refreshCameraList(); });
+  navigator.mediaDevices.addEventListener?.('devicechange', () => {
+    if (inputMode === 'live' && liveSubMode === 'obs') refreshCameraList();
+    if (inputMode === 'live' && liveSubMode === 'record' && recordState === 'idle') refreshRecordCameraList();
+  });
 }
 
 async function onCameraSelectChange() {
@@ -985,6 +1123,232 @@ async function onCameraSelectChange() {
 }
 
 function getVideoEl() { return document.getElementById('sharedVideo'); }
+
+// ----- ライブ映像：アプリ内録画モード（iPhone単体・getUserMedia + MediaRecorder） -----
+async function refreshRecordCameraList() {
+  if (!navigator.mediaDevices?.enumerateDevices) {
+    alert('カメラ機能が利用できません。\n・https:// 経由（または http://localhost）で開いているか確認してください\n・file:// で直接開いている場合はカメラにアクセスできません');
+    return;
+  }
+  try {
+    if (!currentStream) {
+      try {
+        const tmp = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        tmp.getTracks().forEach(t => t.stop());
+      } catch (e) { /* 許可されなくても一覧自体は取れる場合がある */ }
+    }
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter(d => d.kind === 'videoinput');
+    const sel = document.getElementById('recordCameraSelect');
+    const prevValue = sel.value;
+    sel.innerHTML = '<option value="">カメラを選択…</option>' +
+      cams.map(c => `<option value="${escapeHtml(c.deviceId)}">${escapeHtml(c.label || 'カメラ（権限を許可してください）')}</option>`).join('');
+    if (prevValue && cams.some(c => c.deviceId === prevValue)) sel.value = prevValue;
+    showToast(cams.length ? `✅ カメラ一覧を更新しました（${cams.length}件）` : '⚠ カメラが見つかりませんでした');
+  } catch (e) {
+    alert('カメラ一覧の取得に失敗しました: ' + e.message);
+  }
+}
+
+// カメラ選択 → プレビュー表示のみ（まだ録画は開始しない。録画開始は必ず⏺ボタンから）
+async function onRecordCameraSelectChange() {
+  if (recordState !== 'idle') {
+    // 録画中／確認中にカメラを切り替えることはできない（撮り直す、で一旦リセットしてから）
+    alert('録画中・確認中はカメラを切り替えられません。先に停止/撮り直しをしてください。');
+    document.getElementById('recordCameraSelect').value = '';
+    return;
+  }
+  const sel = document.getElementById('recordCameraSelect');
+  const deviceId = sel.value;
+  const video = getVideoEl();
+  stopCameraStream();
+  if (!deviceId) {
+    video.srcObject = null;
+    video.style.display = 'none';
+    document.getElementById('fullscreenToggleBtnRecord')?.classList.remove('video-ready');
+    updateRecordButtonsVisibility();
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: deviceId }, facingMode: 'environment' },
+      audio: true
+    });
+    currentStream = stream;
+    video.srcObject = stream;
+    video.removeAttribute('controls');
+    video.setAttribute('autoplay', '');
+    video.setAttribute('muted', '');
+    video.style.display = 'block';
+    document.getElementById('fullscreenToggleBtnRecord')?.classList.add('video-ready');
+    recordState = 'idle';
+    updateRecordButtonsVisibility();
+  } catch (e) {
+    alert('カメラの起動に失敗しました: ' + e.message);
+  }
+}
+
+// MediaRecorderがサポートするmimeTypeを順に試す（iOS Safari対応優先）
+function pickRecorderMimeType() {
+  const candidates = [
+    'video/mp4',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm'
+  ];
+  for (const t of candidates) {
+    if (window.MediaRecorder?.isTypeSupported?.(t)) return t;
+  }
+  return ''; // ブラウザ標準まかせ
+}
+
+// 録画開始：⏺ボタン押下時。録画開始＝ストップウォッチ計測開始も同時に行う。
+function startCameraRecording() {
+  if (!currentStream) { alert('先にカメラを選択してください。'); return; }
+  if (recordState !== 'idle') return;
+
+  recordedChunks = [];
+  const mimeType = pickRecorderMimeType();
+  try {
+    mediaRecorder = mimeType
+      ? new MediaRecorder(currentStream, { mimeType })
+      : new MediaRecorder(currentStream);
+  } catch (e) {
+    alert('このブラウザでは録画機能がサポートされていません: ' + e.message);
+    return;
+  }
+  mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = onRecordingStopped;
+  mediaRecorder.start(1000); // 1秒ごとにチャンク化（途中で落ちてもある程度残るように）
+
+  recordState = 'recording';
+  videoMode = false; // 録画中はvideo要素のcurrentTimeではなくストップウォッチ基準で計測する
+  updateRecordButtonsVisibility();
+
+  // ストップウォッチ開始（録画と同時にタイムスタンプ計測も開始）
+  swElapsed = 0; swRunning = true;
+  swStartTimestamp = Date.now();
+  document.getElementById('swStartBtn').disabled = true;
+  document.getElementById('swPauseBtn').disabled = true; // 録画中は手動の一時停止は不可（録画⏹と連動させる）
+  setSceneListLocked(true);
+  swTimerId = setInterval(updateStopwatchDisplay, 250);
+  updateStopwatchDisplay();
+  showToast('⏺ 録画を開始しました');
+}
+
+// 録画停止：⏹ボタン押下時。録画停止＝ストップウォッチ計測終了も同時に行う。
+function stopCameraRecording() {
+  if (recordState !== 'recording') return;
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  swElapsed = currentElapsed(); swRunning = false;
+  clearInterval(swTimerId); swTimerId = null;
+  document.getElementById('swStartBtn').disabled = true; // 確認中は手動スタートも不可（撮り直すで戻す）
+  document.getElementById('swPauseBtn').disabled = true;
+  updateStopwatchDisplay();
+  setSceneListLocked(false);
+}
+
+// MediaRecorder.onstop：録画データを確認再生用にvideo要素へセットし直す
+function onRecordingStopped() {
+  recordState = 'stopped';
+  const mimeType = mediaRecorder?.mimeType || 'video/webm';
+  const blob = new Blob(recordedChunks, { type: mimeType });
+  if (recordedBlobUrl) URL.revokeObjectURL(recordedBlobUrl);
+  recordedBlobUrl = URL.createObjectURL(blob);
+
+  // プレビュー用ストリームを止め、録画結果（Blob）に切り替えて確認再生できるようにする
+  stopCameraStream();
+  const video = getVideoEl();
+  video.srcObject = null;
+  video.src = recordedBlobUrl;
+  video.setAttribute('controls', '');
+  video.removeAttribute('autoplay');
+  video.removeAttribute('muted');
+  video.style.display = 'block';
+
+  updateRecordButtonsVisibility();
+  showToast('⏹ 録画を停止しました。内容を確認して保存してください');
+}
+
+// 録画データをファイルとして保存（iPhoneの「ファイル」アプリ等に保存できるよう、共有/ダウンロードを行う）
+async function saveRecordedVideo() {
+  if (recordState !== 'stopped' || !recordedChunks.length) { alert('保存できる録画データがありません'); return; }
+  const mimeType = mediaRecorder?.mimeType || 'video/webm';
+  const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const baseName = (matchSettings.file || todayStr() + '_recorded').trim() || 'recorded_video';
+  const fileName = `${baseName}.${ext}`;
+  const blob = new Blob(recordedChunks, { type: mimeType });
+  const file = new File([blob], fileName, { type: mimeType });
+
+  // iOS Safari等、Web Share APIに対応していれば共有シート経由で「ファイル」アプリ等へ保存できる
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: fileName });
+      showToast('✅ 共有シートから保存してください');
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return; // ユーザーがキャンセルした場合は何もしない
+      // 共有に失敗した場合は通常のダウンロードにフォールバック
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fileName; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showToast(`✅ ${fileName} をダウンロードしました`);
+}
+
+// 撮り直す：録画結果を破棄し、idle状態（カメラ選択し直し）に戻す
+function retakeCameraRecording() {
+  if (!confirm('現在の録画内容を破棄して撮り直しますか？（記録済みのシーン一覧は残ります）')) return;
+  resetRecordingState();
+  const sel = document.getElementById('recordCameraSelect');
+  if (sel && sel.value) {
+    onRecordCameraSelectChange();
+  } else {
+    const video = getVideoEl();
+    video.removeAttribute('src');
+    video.style.display = 'none';
+    document.getElementById('fullscreenToggleBtnRecord')?.classList.remove('video-ready');
+  }
+  swRunning = false; swElapsed = 0; clearInterval(swTimerId); swTimerId = null;
+  document.getElementById('swStartBtn').disabled = false;
+  document.getElementById('swPauseBtn').disabled = true;
+  updateStopwatchDisplay();
+}
+
+// 録画関連の状態を完全初期化（モード切替・撮り直し時に共通で使用）
+function resetRecordingState() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    try { mediaRecorder.stop(); } catch (e) { /* noop */ }
+  }
+  mediaRecorder = null;
+  recordedChunks = [];
+  if (recordedBlobUrl) { URL.revokeObjectURL(recordedBlobUrl); recordedBlobUrl = null; }
+  recordState = 'idle';
+  updateRecordButtonsVisibility();
+}
+
+// 録画モードのボタン群（⏺/⏹/REC表示/保存/撮り直し）の表示切替
+function updateRecordButtonsVisibility() {
+  const isRecordMode = inputMode === 'live' && liveSubMode === 'record';
+  const hasCamera = !!currentStream;
+  document.getElementById('recStartBtn')?.classList.toggle('show', isRecordMode && recordState === 'idle' && hasCamera);
+  document.getElementById('recStopBtn')?.classList.toggle('show', isRecordMode && recordState === 'recording');
+  document.getElementById('recStatusBadge')?.classList.toggle('show', isRecordMode && recordState === 'recording');
+  document.getElementById('recSaveBtn')?.classList.toggle('show', isRecordMode && recordState === 'stopped');
+  document.getElementById('recRetakeBtn')?.classList.toggle('show', isRecordMode && recordState === 'stopped');
+  if (isRecordMode && recordState === 'stopped') {
+    document.getElementById('fullscreenToggleBtnRecord')?.classList.add('video-ready');
+  }
+  // 録画モードのプレビュー／録画中はネイティブcontrolsがないため、全画面時の高さ計算を切り替える
+  document.body.classList.toggle('fs-no-controls', isRecordMode && recordState !== 'stopped');
+  // シンプルモードの記録ボタン（👍）はファイル/OBSモードと同様、録画中も表示する
+  updateRecordOverlayVisibility();
+}
+
 
 // ===== ストップウォッチ =====
 function formatStopwatch(s) {
@@ -1046,8 +1410,9 @@ function toggleFullscreenMode() {
   }
   if (fullscreenActive) updateViewportHeightVar();
   document.body.classList.toggle('fullscreen-active', fullscreenActive);
-  const toggleBtn = document.getElementById('fullscreenToggleBtn');
-  if (toggleBtn) toggleBtn.textContent = fullscreenActive ? '⛶ 戻る' : '⛶ 全画面';
+  document.querySelectorAll('#fullscreenToggleBtn, #fullscreenToggleBtnRecord').forEach(toggleBtn => {
+    if (toggleBtn) toggleBtn.textContent = fullscreenActive ? '⛶ 戻る' : '⛶ 全画面';
+  });
 }
 
 // ===== 全画面モード中の画面回転対応 =====
@@ -1085,6 +1450,7 @@ if (window.visualViewport) {
   });
 }
 function startStopwatch() {
+  if (inputMode === 'live' && liveSubMode === 'record') { alert('アプリ内録画モードでは、ストップウォッチは「⏺ 録画開始」と連動して自動的に始まります。'); return; }
   if (videoMode) { const v=getVideoEl(); if(v?.paused) v.play(); return; }
   if (swRunning) return;
   swRunning=true;
@@ -1096,6 +1462,7 @@ function startStopwatch() {
   updateStopwatchDisplay();
 }
 function pauseStopwatch() {
+  if (inputMode === 'live' && liveSubMode === 'record') { alert('アプリ内録画モードでは、ストップウォッチは「⏹ 録画停止」と連動して自動的に止まります。'); return; }
   if (videoMode) { const v=getVideoEl(); if(v&&!v.paused) v.pause(); return; }
   if (!swRunning) return;
   swElapsed=currentElapsed(); swRunning=false; clearInterval(swTimerId);
@@ -1105,6 +1472,7 @@ function pauseStopwatch() {
   updateStopwatchDisplay();
 }
 function resetStopwatch() {
+  if (inputMode === 'live' && liveSubMode === 'record') { alert('アプリ内録画モードでは「🔄 撮り直す」をお使いください。'); return; }
   if (videoMode) {
     if (!confirm('動画を最初に戻しますか？')) return;
     const v=getVideoEl(); if(v){v.pause();v.currentTime=0;}
@@ -1133,16 +1501,16 @@ function setSceneListLocked(locked) {
   if (note) note.style.display = locked ? 'block' : 'none';
 }
 
-// ===== Num+ / Num- でOBSのホットキーと同時操作（ライブモード時のみ） =====
+// ===== Num+ / Num- でOBSのホットキーと同時操作（ライブ映像「見るだけ(OBS)」モード時のみ） =====
 document.addEventListener('keydown', (e) => {
-  if (inputMode !== 'live') return;
+  if (inputMode !== 'live' || liveSubMode !== 'obs') return;
   if (e.code === 'NumpadAdd') { e.preventDefault(); startStopwatch(); }
   else if (e.code === 'NumpadSubtract') { e.preventDefault(); pauseStopwatch(); }
 });
 
 // ===== SCENEカード =====
 function jumpToScene(id) {
-  if (inputMode === 'live') {
+  if (inputMode === 'live' && !(liveSubMode === 'record' && recordState === 'stopped')) {
     alert('ライブ映像のため、シーン確認（ジャンプ）は使用できません。OBSの録画ファイルを直接ご確認ください。');
     return;
   }
@@ -1220,7 +1588,7 @@ function toggleSimpleScene(id) {
   arrow.classList.toggle('open', !isOpen);
 }
 function jumpToSimpleScene(timeSec) {
-  if (inputMode === 'live') {
+  if (inputMode === 'live' && !(liveSubMode === 'record' && recordState === 'stopped')) {
     alert('ライブ映像のため、シーン確認（ジャンプ）は使用できません。OBSの録画ファイルを直接ご確認ください。');
     return;
   }
@@ -1608,7 +1976,7 @@ function unloadSelectedVideo() {
   const video = getVideoEl();
   if (!video) return;
 
-  // ファイルモード：blob URLを解放してvideo要素をリセット
+  // ファイルモード／録画確認中：blob URLを解放してvideo要素をリセット
   if (video.src && video.src.startsWith('blob:')) {
     URL.revokeObjectURL(video.src);
   }
@@ -1618,19 +1986,20 @@ function unloadSelectedVideo() {
   video.load();
   video.style.display = 'none';
 
-  // ライブモード：起動中のカメラストリームを停止
-  if (currentStream) {
-    currentStream.getTracks().forEach(t => t.stop());
-    currentStream = null;
-  }
+  // ライブモード：起動中のカメラストリーム・録画状態を停止
+  stopCameraStream();
+  resetRecordingState();
   const cameraSelectEl = document.getElementById('cameraSelect');
   if (cameraSelectEl) cameraSelectEl.value = '';
+  const recordCameraSelectEl = document.getElementById('recordCameraSelect');
+  if (recordCameraSelectEl) recordCameraSelectEl.value = '';
 
   // <input type="file">のvalueをリセット（同じファイルを選び直してもchangeが発火するように）
   const fileInputEl = document.getElementById('videoFileInput');
   if (fileInputEl) fileInputEl.value = '';
 
   document.getElementById('fullscreenToggleBtn')?.classList.remove('video-ready');
+  document.getElementById('fullscreenToggleBtnRecord')?.classList.remove('video-ready');
   videoMode = false;
   updateRecordOverlayVisibility();
 
