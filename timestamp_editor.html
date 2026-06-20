@@ -385,6 +385,10 @@ body.fullscreen-active .bottom-bar{display:none;}
 </div>
 
 <div class="toast" id="toast">✅ 保存しました</div>
+<!-- 全画面化時、強制スクロールでURLバー・タブバーを隠すための一時スペーサー。
+     画面の高さぴったりにコンテンツが収まりスクロール余地が無いと scrollTo が効かないため、
+     全画面化の瞬間だけ高さを与えてスクロール可能にし、誘発後すぐ高さ0に戻す。 -->
+<div id="immersiveScrollSpacer" style="height:0;flex-shrink:0;"></div>
 </div>
 
 <script>
@@ -731,24 +735,48 @@ function toggleFullscreenMode() {
 // ネイティブ全画面のみ対応）ため、このページのようなオーバーレイUI付きの疑似全画面では
 // ブラウザのアドレスバー／タブバーが自動では消えない。
 // Safariはユーザーが実際にページをスクロールした時だけURLバー・タブバーを隠す「没入モード」
-// に入る仕様のため、全画面化の直後に1px分だけ強制的にスクロールさせて、
-// このスクロールイベントを起点にバーを隠れさせる。
-// body.fullscreen-active は overflow:hidden になっているため、スクロール実行の瞬間だけ
-// 一時的にoverflowを解除し、完了後に元へ戻す。
+// に入る仕様だが、(1)scrollTo()が効くにはドキュメントに実際のスクロール余地（slack）が必要、
+// (2)ユーザー操作（タップ）からなるべく離れずに、かつ複数フレームにわたる「動き」として
+// 連続的にスクロール位置を変化させたほうが検出されやすい、という2点を踏まえて実装する。
 function forceImmersiveScroll() {
+  const spacer = document.getElementById('immersiveScrollSpacer');
   const prevOverflow = document.body.style.overflow;
+  // スクロール余地を同期的に確保（クリックハンドラ実行中、できるだけ早いタイミングで）
+  if (spacer) spacer.style.height = (Math.max(window.innerHeight, screen.height, screen.width) + 100) + 'px';
   document.body.style.overflow = '';
-  // 1フレーム後（クラス適用・レイアウト確定後）にスクロールを実行
-  requestAnimationFrame(() => {
-    window.scrollTo(0, 1);
-    // さらに少し遅延させてもう一度（初回は反応しない端末があるための保険）
-    setTimeout(() => { window.scrollTo(0, 1); }, 80);
-    setTimeout(() => {
-      // 没入モード誘発後、見た目上は0pxに戻しておく（中身の表示には影響しない）
-      window.scrollTo(0, 0);
-      document.body.style.overflow = prevOverflow;
-    }, 260);
-  });
+  // documentElement側にも保険でoverflow解除
+  const prevHtmlOverflow = document.documentElement.style.overflow;
+  document.documentElement.style.overflow = '';
+
+  const setScroll = (y) => {
+    document.documentElement.scrollTop = y;
+    document.body.scrollTop = y;
+    if (document.scrollingElement) document.scrollingElement.scrollTop = y;
+    window.scrollTo(0, y);
+  };
+
+  // 複数フレームにわたって段階的にスクロール位置を動かす（1px止まりでなく「動き」を作る）
+  const steps = [1, 4, 10, 20, 35, 50];
+  let i = 0;
+  function stepScroll() {
+    if (i < steps.length) {
+      setScroll(steps[i]);
+      i++;
+      requestAnimationFrame(stepScroll);
+    } else {
+      // 最終的な誘発確認のための保険リトライ（タイミングがずれた端末向け）
+      setTimeout(() => setScroll(50), 100);
+      setTimeout(() => setScroll(50), 300);
+      setTimeout(finishScroll, 600);
+    }
+  }
+  function finishScroll() {
+    setScroll(0);
+    if (spacer) spacer.style.height = '0';
+    document.body.style.overflow = prevOverflow;
+    document.documentElement.style.overflow = prevHtmlOverflow;
+  }
+  requestAnimationFrame(stepScroll);
 }
 
 // ===== 全画面モード中の画面回転対応 =====
