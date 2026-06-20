@@ -71,6 +71,14 @@ header p{font-size:11px;color:var(--text2);margin-top:3px;}
 .live-lock-note{display:none;font-size:11px;color:var(--red);background:rgba(255,82,82,.08);border:1px solid var(--red);border-radius:8px;padding:8px 10px;margin-bottom:8px;}
 #sharedVideo{width:auto;max-width:100%;height:calc(100vh - 140px);max-height:calc(100vh - 140px);border-radius:8px;background:#000;margin-top:6px;display:none;}
 
+/* スマホ縦画面：PC向けの「高さ基準で最大化」だと、縦長の画面に対して横長動画の
+   高さを合わせようとした結果、異様に縦長の表示エリアになってしまう。
+   そこで縦画面時のみ「幅基準（画面幅いっぱい、高さは縦横比で自動）」に切り替える。
+   横向きにした場合はPCと同様の高さ基準に戻る（横向きなら高さ基準でも問題が起きにくいため）。 */
+@media(max-width:760px) and (orientation:portrait){
+  #sharedVideo{width:100%;max-width:100%;height:auto;max-height:none;}
+}
+
 /* 動画フレーム：video要素＋全画面時に重ねるUIの土台 */
 .video-frame{position:relative;display:flex;justify-content:center;}
 
