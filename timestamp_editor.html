@@ -1170,8 +1170,18 @@ async function onRecordCameraSelectChange() {
     return;
   }
   try {
+    // 解像度・アスペクト比を明示的に要求しないと、iOS Safariは端末任せの中途半端な比率
+    // （4:3寄りなど）でストリームを返してくることがあり、結果として録画映像が画面全体を
+    // 使わない比率になってしまう。ideal指定で「できるだけ広い・できるだけ16:9に近い」
+    // ストリームを要求することで、全画面に近い比率での録画を狙う。
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { deviceId: { exact: deviceId }, facingMode: 'environment' },
+      video: {
+        deviceId: { exact: deviceId },
+        facingMode: 'environment',
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        aspectRatio: { ideal: 16 / 9 }
+      },
       audio: true
     });
     currentStream = stream;
