@@ -721,6 +721,41 @@ function toggleFullscreenMode() {
   const toggleBtn = document.getElementById('fullscreenToggleBtn');
   if (toggleBtn) toggleBtn.textContent = fullscreenActive ? '⛶ 戻る' : '⛶ 全画面';
 }
+
+// ===== 全画面モード中の画面回転対応 =====
+// 縦画面で全画面に入ったあと横に回転すると、iOS Safariでvideoのネイティブ
+// コントロール（再生ボタン等）の当たり判定が更新されず反応しなくなることがある。
+// 対策A: orientationchangeでも--vvhを更新（直後・少し遅延後の2回計算してタイミングのズレを吸収）
+// 対策B: 全画面中に回転を検知したら、fullscreen-modeクラスを一旦外して
+//        次フレームで付け直し、レイアウト（と当たり判定）を強制的に再構築する
+function handleFullscreenOrientationChange() {
+  updateViewportHeightVar();
+  setTimeout(updateViewportHeightVar, 150);
+  if (!fullscreenActive) return;
+  const frame = document.getElementById('videoFrame');
+  if (!frame) return;
+  frame.classList.remove('fullscreen-mode');
+  // 再生位置・再生状態を保持したまま、次フレームでレイアウトを再構築する
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      frame.classList.add('fullscreen-mode');
+      updateViewportHeightVar();
+    });
+  });
+}
+window.addEventListener('orientationchange', handleFullscreenOrientationChange);
+if (window.visualViewport) {
+  // orientationchangeが発火しない/遅い環境向けの保険として、ビューポート幅と高さの
+  // 大小関係が入れ替わった（=向きが変わった）タイミングでも同じ処理を実行する
+  let lastIsLandscape = window.visualViewport.width > window.visualViewport.height;
+  window.visualViewport.addEventListener('resize', () => {
+    const nowIsLandscape = window.visualViewport.width > window.visualViewport.height;
+    if (nowIsLandscape !== lastIsLandscape) {
+      lastIsLandscape = nowIsLandscape;
+      handleFullscreenOrientationChange();
+    }
+  });
+}
 function startStopwatch() {
   if (videoMode) { const v=getVideoEl(); if(v?.paused) v.play(); return; }
   if (swRunning) return;
