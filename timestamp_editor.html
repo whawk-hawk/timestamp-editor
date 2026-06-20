@@ -723,6 +723,32 @@ function toggleFullscreenMode() {
   document.body.classList.toggle('fullscreen-active', fullscreenActive);
   const toggleBtn = document.getElementById('fullscreenToggleBtn');
   if (toggleBtn) toggleBtn.textContent = fullscreenActive ? '⛶ 戻る' : '⛶ 全画面';
+  if (fullscreenActive) forceImmersiveScroll();
+}
+
+// ===== 全画面化直後にURLバー・タブバーを隠す（iPhone横画面対策） =====
+// iOS SafariはrequestFullscreen()をdiv等の通常要素に対しては実行できない（video要素の
+// ネイティブ全画面のみ対応）ため、このページのようなオーバーレイUI付きの疑似全画面では
+// ブラウザのアドレスバー／タブバーが自動では消えない。
+// Safariはユーザーが実際にページをスクロールした時だけURLバー・タブバーを隠す「没入モード」
+// に入る仕様のため、全画面化の直後に1px分だけ強制的にスクロールさせて、
+// このスクロールイベントを起点にバーを隠れさせる。
+// body.fullscreen-active は overflow:hidden になっているため、スクロール実行の瞬間だけ
+// 一時的にoverflowを解除し、完了後に元へ戻す。
+function forceImmersiveScroll() {
+  const prevOverflow = document.body.style.overflow;
+  document.body.style.overflow = '';
+  // 1フレーム後（クラス適用・レイアウト確定後）にスクロールを実行
+  requestAnimationFrame(() => {
+    window.scrollTo(0, 1);
+    // さらに少し遅延させてもう一度（初回は反応しない端末があるための保険）
+    setTimeout(() => { window.scrollTo(0, 1); }, 80);
+    setTimeout(() => {
+      // 没入モード誘発後、見た目上は0pxに戻しておく（中身の表示には影響しない）
+      window.scrollTo(0, 0);
+      document.body.style.overflow = prevOverflow;
+    }, 260);
+  });
 }
 
 // ===== 全画面モード中の画面回転対応 =====
@@ -743,6 +769,7 @@ function handleFullscreenOrientationChange() {
     requestAnimationFrame(() => {
       frame.classList.add('fullscreen-mode');
       updateViewportHeightVar();
+      forceImmersiveScroll();
     });
   });
 }
