@@ -118,6 +118,21 @@ header p{font-size:11px;color:var(--text2);margin-top:3px;}
 .rec-retake-btn.show{display:inline-flex;transform:translateX(5px);}
 .rec-save-btn:hover,.rec-retake-btn:hover{background:rgba(79,195,247,.12);}
 
+/* 録画停止後：字幕(VTT)書き出し・テロップ焼き込みの追加保存オプション（動画フレームの下に常設パネルとして表示） */
+.rec-extra-save{display:none;flex-direction:column;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-top:10px;}
+.rec-extra-save.show{display:flex;}
+.rec-extra-save-title{font-size:11px;color:var(--text2);letter-spacing:.06em;}
+.rec-extra-save-row{display:flex;gap:8px;flex-wrap:wrap;}
+.rec-extra-btn{flex:1;min-width:160px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:12px;padding:10px 12px;cursor:pointer;text-align:center;transition:all .15s;}
+.rec-extra-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(79,195,247,.08);}
+.rec-extra-btn:disabled{opacity:.45;cursor:not-allowed;}
+.rec-extra-btn:disabled:hover{border-color:var(--border);color:var(--text);background:var(--surface2);}
+.rec-extra-hint{font-size:10px;color:var(--text2);line-height:1.6;}
+.rec-burn-progress{display:none;align-items:center;gap:8px;font-size:11px;color:var(--accent);}
+.rec-burn-progress.show{display:flex;}
+.rec-burn-bar{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.rec-burn-bar-fill{height:100%;width:0%;background:var(--accent);transition:width .2s;}
+
 /* 動画プレーヤー見出し行：見出し/選択ボタン/全画面ボタン/説明文の縦積み。 */
 .player-head-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
 .player-head-main{flex:1;min-width:0;}
@@ -490,6 +505,20 @@ input:focus,select:focus{border-color:var(--accent);}
         <button type="button" class="rec-stop-btn" id="recStopBtn" onclick="stopCameraRecording()" aria-label="録画停止">⏹</button>
         <button type="button" class="rec-save-btn" id="recSaveBtn" onclick="saveRecordedVideo()">💾 動画を保存（ファイルに保存）</button>
         <button type="button" class="rec-retake-btn" id="recRetakeBtn" onclick="retakeCameraRecording()">🔄 撮り直す</button>
+      </div>
+
+      <!-- 録画停止後：字幕(VTT)書き出し／テロップ焼き込み保存（YouTube用・配布用それぞれに対応） -->
+      <div class="rec-extra-save" id="recExtraSave">
+        <p class="rec-extra-save-title">追加の保存オプション</p>
+        <div class="rec-extra-save-row">
+          <button type="button" class="rec-extra-btn" id="recExportVttBtn" onclick="exportRecordingVtt()">📝 字幕(.vtt)を書き出す<br><span style="font-weight:400;font-size:10px;color:var(--text2)">YouTubeの字幕としてアップロード可</span></button>
+          <button type="button" class="rec-extra-btn" id="recBurnInBtn" onclick="burnInAndSave()">🔥 テロップ焼き込んで保存<br><span style="font-weight:400;font-size:10px;color:var(--text2)">動画に直接表示・どこでも再生可</span></button>
+        </div>
+        <div class="rec-burn-progress" id="recBurnProgress">
+          <span id="recBurnProgressText">処理中… 0%</span>
+          <div class="rec-burn-bar"><div class="rec-burn-bar-fill" id="recBurnProgressFill"></div></div>
+        </div>
+        <p class="rec-extra-hint">※ 元の動画ファイル名（共通設定の「ファイル名」欄）に一致するシーン記録をもとに書き出します。</p>
       </div>
     </div>
 
@@ -1319,6 +1348,232 @@ async function saveRecordedVideo() {
   showToast(`✅ ${fileName} をダウンロードしました`);
 }
 
+// ----- 録画動画に紐づくシーン記録の収集（VTT書き出し・テロップ焼き込みで共用） -----
+// 詳細モード／シンプルモードどちらでも、現在の録画ファイル名（matchSettings.file）に
+// 一致するシーンだけを対象にする。シーンの「表示区間」は前後切り出し秒数（pre/post）を
+// タイムスタンプの前後に適用した範囲とする（プレビューの切り出し範囲と同じ考え方）。
+function getRecordingCaptionCues() {
+  const baseName = (matchSettings.file || '').trim();
+  const cues = [];
+
+  if (recordMode === 'simple') {
+    simpleEntries.forEach((e, i) => {
+      if (baseName && e.file !== baseName) return;
+      const start = Math.max(0, e.time - SIMPLE_PRE_SEC);
+      const end = e.time + SIMPLE_POST_SEC;
+      cues.push({ start, end, text: `SCENE ${i + 1}` });
+    });
+    return cues;
+  }
+
+  document.querySelectorAll('.entry-card').forEach(card => {
+    const id = card.id.replace('entry_', '');
+    const file = (document.getElementById(`file_${id}`)?.value || '').trim();
+    if (baseName && file !== baseName) return;
+    const min = parseInt(document.getElementById(`ts_min_${id}`)?.value || '0', 10);
+    const sec = parseInt(document.getElementById(`ts_sec_${id}`)?.value || '0', 10);
+    const t = min * 60 + sec;
+    const pre = parseFloat(document.getElementById(`pre_${id}`)?.value ?? PRE_SEC);
+    const post = parseFloat(document.getElementById(`post_${id}`)?.value ?? POST_SEC);
+    const event = document.getElementById(`event_${id}`)?.value || '';
+    const opponent = document.getElementById(`opponent_${id}`)?.value || '';
+    const player = document.getElementById(`player_${id}`)?.value || '';
+    const label = [player, event, opponent].filter(Boolean).join(' / ') || 'SCENE';
+    cues.push({ start: Math.max(0, t - pre), end: t + post, text: label });
+  });
+  return cues.sort((a, b) => a.start - b.start);
+}
+
+// 秒数 → WebVTTのタイムコード（HH:MM:SS.mmm）に変換
+function secToVttTime(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  const ms = Math.round((s - Math.floor(s)) * 1000);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;
+}
+
+// 字幕(.vtt)として書き出し：動画ファイル本体は無加工のまま、YouTubeの字幕トラックとしてアップロード可能
+async function exportRecordingVtt() {
+  const cues = getRecordingCaptionCues();
+  if (!cues.length) {
+    alert('書き出せるシーン記録が見つかりませんでした。\n（共通設定の「ファイル名」と、シーン記録のファイル名が一致しているか確認してください）');
+    return;
+  }
+  const lines = ['WEBVTT', ''];
+  cues.forEach((c, i) => {
+    lines.push(String(i + 1));
+    lines.push(`${secToVttTime(c.start)} --> ${secToVttTime(c.end)}`);
+    lines.push(c.text);
+    lines.push('');
+  });
+  const text = lines.join('\n');
+  const baseName = (matchSettings.file || todayStr() + '_recorded').trim() || 'recorded_video';
+  const fileName = `${baseName}.vtt`;
+
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: [{ description: 'WebVTT字幕ファイル', accept: { 'text/vtt': ['.vtt'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      showToast(`✅ ${fileName} を保存しました`);
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      console.error(e);
+    }
+  }
+  const blob = new Blob([text], { type: 'text/vtt;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fileName; a.click();
+  showToast(`✅ ${fileName} をダウンロードしました`);
+}
+
+// テロップ焼き込み保存：録画済みBlobをCanvas上で再生しながらテキストを重ね描画し、
+// MediaRecorderで再エンコードして新しい動画として書き出す。
+// 録画そのもの（startCameraRecording）とは独立した「後処理」として実装しており、
+// 失敗してもオリジナルの録画データ（recordedChunks）には一切影響しない。
+async function burnInAndSave() {
+  if (recordState !== 'stopped' || !recordedChunks.length) { alert('保存できる録画データがありません'); return; }
+  if (!HTMLCanvasElement.prototype.captureStream) {
+    alert('このブラウザはテロップ焼き込み機能（Canvas captureStream）に対応していません。\niPhoneの場合はSafari最新版をお試しください。');
+    return;
+  }
+  const cues = getRecordingCaptionCues();
+  if (!cues.length) {
+    if (!confirm('紐づくシーン記録が見つかりませんでした。テロップなしのまま書き出しますか？')) return;
+  }
+
+  const burnBtn = document.getElementById('recBurnInBtn');
+  const vttBtn = document.getElementById('recExportVttBtn');
+  const saveBtn = document.getElementById('recSaveBtn');
+  const retakeBtn = document.getElementById('recRetakeBtn');
+  const progressWrap = document.getElementById('recBurnProgress');
+  const progressText = document.getElementById('recBurnProgressText');
+  const progressFill = document.getElementById('recBurnProgressFill');
+  [burnBtn, vttBtn, saveBtn, retakeBtn].forEach(b => { if (b) b.disabled = true; });
+  progressWrap?.classList.add('show');
+  progressText.textContent = '準備中…';
+  progressFill.style.width = '0%';
+
+  // 元の録画Blobを、画面上のプレビューとは別の隠しvideo要素に読み込んで処理する
+  // （画面に出ている確認用<video>とユーザー操作が干渉しないようにするため）
+  const srcBlob = new Blob(recordedChunks, { type: mediaRecorder?.mimeType || 'video/webm' });
+  const srcUrl = URL.createObjectURL(srcBlob);
+  const srcVideo = document.createElement('video');
+  srcVideo.src = srcUrl;
+  srcVideo.muted = false;
+  srcVideo.playsInline = true;
+
+  try {
+    await new Promise((resolve, reject) => {
+      srcVideo.onloadedmetadata = resolve;
+      srcVideo.onerror = () => reject(new Error('録画データの読み込みに失敗しました'));
+    });
+
+    const w = srcVideo.videoWidth || 1280;
+    const h = srcVideo.videoHeight || 720;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+
+    // Canvasの映像ストリーム＋元動画の音声トラックを合成してMediaRecorderに渡す
+    const canvasStream = canvas.captureStream(30);
+    let mixedStream = canvasStream;
+    if (srcVideo.captureStream) {
+      try {
+        const audioOnly = srcVideo.captureStream().getAudioTracks();
+        if (audioOnly.length) {
+          mixedStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioOnly]);
+        }
+      } catch (e) { /* 音声トラック取得に失敗しても映像だけで続行 */ }
+    }
+
+    const mimeType = pickRecorderMimeType();
+    const outChunks = [];
+    const burnRecorder = mimeType
+      ? new MediaRecorder(mixedStream, { mimeType })
+      : new MediaRecorder(mixedStream);
+    burnRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) outChunks.push(e.data); };
+
+    const fontSize = Math.max(20, Math.round(h * 0.045));
+    function drawFrame() {
+      ctx.drawImage(srcVideo, 0, 0, w, h);
+      const t = srcVideo.currentTime;
+      const activeCue = cues.find(c => t >= c.start && t <= c.end);
+      if (activeCue) {
+        const text = activeCue.text;
+        ctx.font = `bold ${fontSize}px 'Noto Sans JP', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        const x = w / 2;
+        const y = h - fontSize * 0.9;
+        ctx.lineWidth = Math.max(3, fontSize * 0.12);
+        ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+        ctx.strokeText(text, x, y);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(text, x, y);
+      }
+      if (!srcVideo.paused && !srcVideo.ended) {
+        progressFill.style.width = `${Math.min(100, (t / srcVideo.duration) * 100)}%`;
+        progressText.textContent = `テロップ焼き込み中… ${Math.round((t / srcVideo.duration) * 100)}%`;
+        requestAnimationFrame(drawFrame);
+      }
+    }
+
+    const finished = new Promise((resolve) => { burnRecorder.onstop = resolve; });
+    burnRecorder.start(500);
+    await srcVideo.play();
+    drawFrame();
+    await new Promise((resolve) => { srcVideo.onended = resolve; });
+    burnRecorder.stop();
+    await finished;
+
+    progressText.textContent = '保存中…';
+    progressFill.style.width = '100%';
+
+    const outMime = burnRecorder.mimeType || mimeType || 'video/webm';
+    const ext = outMime.includes('mp4') ? 'mp4' : 'webm';
+    const baseName = (matchSettings.file || todayStr() + '_recorded').trim() || 'recorded_video';
+    const fileName = `${baseName}_telop.${ext}`;
+    const outBlob = new Blob(outChunks, { type: outMime });
+    const outFile = new File([outBlob], fileName, { type: outMime });
+
+    if (navigator.canShare && navigator.canShare({ files: [outFile] })) {
+      try {
+        await navigator.share({ files: [outFile], title: fileName });
+        showToast('✅ 共有シートから保存してください');
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          const url = URL.createObjectURL(outBlob);
+          const a = document.createElement('a');
+          a.href = url; a.download = fileName; a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 2000);
+          showToast(`✅ ${fileName} をダウンロードしました`);
+        }
+      }
+    } else {
+      const url = URL.createObjectURL(outBlob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      showToast(`✅ ${fileName} をダウンロードしました`);
+    }
+  } catch (e) {
+    console.error(e);
+    alert('テロップ焼き込みに失敗しました: ' + e.message);
+  } finally {
+    URL.revokeObjectURL(srcUrl);
+    [burnBtn, vttBtn, saveBtn, retakeBtn].forEach(b => { if (b) b.disabled = false; });
+    progressWrap?.classList.remove('show');
+  }
+}
+
 // 撮り直す：録画結果を破棄し、idle状態（カメラ選択し直し）に戻す
 function retakeCameraRecording() {
   if (!confirm('現在の録画内容を破棄して撮り直しますか？（記録済みのシーン一覧は残ります）')) return;
@@ -1359,6 +1614,7 @@ function updateRecordButtonsVisibility() {
   document.getElementById('recStatusBadge')?.classList.toggle('show', isRecordMode && recordState === 'recording');
   document.getElementById('recSaveBtn')?.classList.toggle('show', isRecordMode && recordState === 'stopped');
   document.getElementById('recRetakeBtn')?.classList.toggle('show', isRecordMode && recordState === 'stopped');
+  document.getElementById('recExtraSave')?.classList.toggle('show', isRecordMode && recordState === 'stopped');
   if (isRecordMode && recordState === 'stopped') {
     document.getElementById('fullscreenToggleBtnRecord')?.classList.add('video-ready');
   }
