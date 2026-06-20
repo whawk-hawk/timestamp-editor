@@ -1179,6 +1179,8 @@ async function onRecordCameraSelectChange() {
     video.removeAttribute('controls');
     video.setAttribute('autoplay', '');
     video.setAttribute('muted', '');
+    video.muted = true; // iOS Safari対策：muted属性だけでなくプロパティも明示的に設定しないと
+                         // srcObject経由のストリームでミュートが反映されずハウリングする場合がある
     video.style.display = 'block';
     document.getElementById('fullscreenToggleBtnRecord')?.classList.add('video-ready');
     recordState = 'idle';
@@ -1206,6 +1208,12 @@ function pickRecorderMimeType() {
 function startCameraRecording() {
   if (!currentStream) { alert('先にカメラを選択してください。'); return; }
   if (recordState !== 'idle') return;
+
+  // 録画中もプレビュー映像は表示し続けるが、マイク音声をそのまま再生するとハウリングするため、
+  // プレビュー用<video>は必ずミュートしておく（録音自体はストリームに音声トラックが
+  // 含まれているので、MediaRecorderの録画データには音声が残る）
+  const previewVideo = getVideoEl();
+  if (previewVideo) previewVideo.muted = true;
 
   recordedChunks = [];
   const mimeType = pickRecorderMimeType();
@@ -1266,6 +1274,7 @@ function onRecordingStopped() {
   video.setAttribute('controls', '');
   video.removeAttribute('autoplay');
   video.removeAttribute('muted');
+  video.muted = false; // 確認再生では録音した音声を聞けるようにする
   video.style.display = 'block';
 
   updateRecordButtonsVisibility();
