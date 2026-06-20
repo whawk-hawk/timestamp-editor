@@ -16,11 +16,27 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .wrapper{max-width:1600px;margin:0 auto;}
 
 /* ヘッダー */
-header{text-align:center;margin-bottom:16px;}
+header{margin-bottom:16px;}
+.header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.header-side{display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;}
+.header-side.left{justify-content:flex-start;}
+.header-side.right{justify-content:flex-end;}
+.header-center{flex:1;min-width:200px;text-align:center;}
 header h1{font-size:19px;font-weight:700;letter-spacing:.08em;color:var(--accent);}
 header p{font-size:11px;color:var(--text2);margin-top:3px;}
 .settings-btn{background:none;border:1px solid var(--border);color:var(--text2);border-radius:20px;font-size:11px;padding:4px 14px;margin-top:6px;cursor:pointer;transition:all .15s;}
 .settings-btn:hover{border-color:var(--accent);color:var(--accent);}
+.header-btn{border:none;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:12px;padding:8px 12px;cursor:pointer;white-space:nowrap;}
+.header-btn.primary{background:var(--accent);color:#0a0f1a;}
+.header-btn.secondary{background:none;border:1px solid var(--border);color:var(--text2);}
+.header-btn.secondary:hover{border-color:var(--accent);color:var(--accent);}
+.header-btn.danger{background:none;border:1px solid var(--border);color:var(--text2);}
+.header-btn.danger:hover{border-color:var(--red);color:var(--red);}
+@media(max-width:760px){
+  .header-row{flex-direction:column;align-items:stretch;}
+  .header-side{justify-content:center;}
+  .header-center{order:-1;}
+}
 
 /* 2カラム */
 .two-col{display:grid;grid-template-columns:70fr 30fr;gap:14px;align-items:start;}
@@ -57,6 +73,13 @@ header p{font-size:11px;color:var(--text2);margin-top:3px;}
 
 /* 動画フレーム：video要素＋全画面時に重ねるUIの土台 */
 .video-frame{position:relative;display:flex;justify-content:center;}
+
+/* シンプルモード：動画上の記録ボタン（タップでSCENE即時記録）。
+   タップ位置が常に同じになるため、iOS Safariの自動スクロール調整を避けられる */
+.video-record-overlay{display:none;position:absolute;top:10px;right:10px;width:44px;height:44px;border-radius:50%;background:rgba(79,195,247,.85);border:1px solid rgba(255,255,255,.35);color:#0a0f1a;font-size:20px;cursor:pointer;z-index:2;-webkit-tap-highlight-color:transparent;touch-action:manipulation;align-items:center;justify-content:center;transition:transform .08s,background .08s;}
+.video-record-overlay.show{display:flex;}
+.video-record-overlay:focus{outline:none;}
+.video-record-overlay:active,.video-record-overlay.flash{transform:scale(1.15);background:#8ef0c0;}
 
 /* 動画プレーヤー見出し行：左＝見出し/選択ボタン/説明文、右＝全画面ボタン。
    PCでは見出し行に収まる横並び、スマホでは右側に縦長の全画面ボタンを配置する2カラムにする。 */
@@ -249,6 +272,13 @@ input:focus,select:focus{border-color:var(--accent);}
 .modal-section h3{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
 .modal-close-btn{width:100%;margin-top:16px;background:var(--accent);color:#0a0f1a;font-size:14px;padding:12px;border-radius:8px;border:none;font-family:'Noto Sans JP',sans-serif;font-weight:700;cursor:pointer;}
 
+/* 記録モード切替（詳細／シンプル） */
+.record-mode-toggle{display:flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px;}
+.record-mode-btn{flex:1;background:none;border:none;color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;padding:9px 10px;border-radius:6px;cursor:pointer;transition:all .15s;}
+.record-mode-btn.active{background:var(--accent);color:#0a0f1a;}
+.record-mode-btn:not(.active):hover{color:var(--text);}
+.record-mode-desc{font-size:11px;color:var(--text2);margin-top:8px;line-height:1.6;}
+
 /* 今日の試合設定（モーダル内） */
 .match-setting{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:10px;}
 .match-setting .fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
@@ -262,15 +292,6 @@ input:focus,select:focus{border-color:var(--accent);}
 .roster-desc{font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:14px;}
 .roster-done-btn{width:100%;margin-top:12px;background:var(--accent);color:#0a0f1a;font-size:14px;padding:12px;border-radius:8px;border:none;font-family:'Noto Sans JP',sans-serif;font-weight:700;cursor:pointer;}
 
-/* 読み込み・出力・リセット（プレビュー下に通常配置） */
-.bottom-actions{display:flex;gap:10px;align-items:center;}
-.bb-btn{border:none;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:13px;padding:11px 16px;cursor:pointer;}
-.bb-primary{background:var(--accent);color:#0a0f1a;flex:2;}
-.bb-secondary{background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:13px;padding:11px 16px;cursor:pointer;text-align:center;display:inline-block;flex:1;}
-.bb-secondary:hover{border-color:var(--accent);color:var(--accent);}
-.bb-danger{background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:13px;padding:11px 16px;cursor:pointer;}
-.bb-danger:hover{border-color:var(--red);color:var(--red);}
-
 .toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(60px);opacity:0;visibility:hidden;background:var(--green);color:#0a1a0f;font-weight:700;font-size:13px;padding:10px 24px;border-radius:30px;transition:transform .3s ease,opacity .3s ease,visibility .3s;pointer-events:none;z-index:300;}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1;visibility:visible;}
 </style>
@@ -279,15 +300,37 @@ input:focus,select:focus{border-color:var(--accent);}
 <div class="wrapper">
 
 <header>
-  <h1>⚽ ハイライト タイムスタンプ入力</h1>
-  <p>選手ボタンをタップするとその瞬間のタイムスタンプでシーンが自動生成されます</p>
-  <button class="settings-btn" onclick="openSettings()">⚙ 設定（選手名・大会名・対戦相手・今日の試合）</button>
+  <div class="header-row">
+    <div class="header-side left">
+      <label class="header-btn secondary" for="fileInput" style="cursor:pointer">📤 読み込む</label>
+      <input type="file" id="fileInput" accept=".txt" onchange="importTxt(event)" style="display:none">
+      <button class="header-btn primary" onclick="exportTxt()">📥 出力</button>
+    </div>
+    <div class="header-center">
+      <h1>⚽ ハイライト タイムスタンプ入力</h1>
+      <p>選手ボタンをタップするとその瞬間のタイムスタンプでシーンが自動生成されます</p>
+      <button class="settings-btn" onclick="openSettings()">⚙ 設定（選手名・大会名・対戦相手・今日の試合）</button>
+    </div>
+    <div class="header-side right">
+      <button class="header-btn danger" onclick="clearAll()">All Clear</button>
+    </div>
+  </div>
 </header>
 
 <!-- ===== 設定モーダル ===== -->
 <div class="modal-overlay" id="settingsModal">
   <div class="modal-box">
     <h2>⚙ 設定</h2>
+
+    <!-- 記録モード切替 -->
+    <div class="modal-section">
+      <h3>📝 記録モード</h3>
+      <div class="record-mode-toggle">
+        <button type="button" class="record-mode-btn active" id="recordModeBtnDetail" onclick="setRecordMode('detail')">詳細</button>
+        <button type="button" class="record-mode-btn" id="recordModeBtnSimple" onclick="setRecordMode('simple')">シンプル</button>
+      </div>
+      <p class="record-mode-desc" id="recordModeDesc">選手ボタンをタップしてSCENEを記録します（選手名・大会名・対戦相手・前後秒数を記録）。</p>
+    </div>
 
     <!-- 今日の試合設定 -->
     <div class="modal-section">
@@ -302,15 +345,15 @@ input:focus,select:focus{border-color:var(--accent);}
               <span class="filename-ext">.mp4</span>
             </div>
           </div>
-          <div class="field">
+          <div class="field" id="match_date_field">
             <label>日付</label>
             <input type="date" id="match_date">
           </div>
-          <div class="field">
+          <div class="field" id="match_event_field">
             <label>大会名</label>
             <div id="match_event_wrap"></div>
           </div>
-          <div class="field">
+          <div class="field" id="match_opponent_field">
             <label>対戦相手</label>
             <div id="match_opponent_wrap"></div>
           </div>
@@ -319,7 +362,7 @@ input:focus,select:focus{border-color:var(--accent);}
     </div>
 
     <!-- 選手名 -->
-    <div class="modal-section">
+    <div class="modal-section" id="rosterSection">
       <h3>👤 選手名</h3>
       <div class="tag-input-wrap">
         <input type="text" id="rosterInput" placeholder="例: たいが" onkeydown="if(event.key==='Enter')addRosterPlayer()">
@@ -329,7 +372,7 @@ input:focus,select:focus{border-color:var(--accent);}
     </div>
 
     <!-- 大会名 -->
-    <div class="modal-section">
+    <div class="modal-section" id="eventSection">
       <h3>🏆 大会名</h3>
       <div class="tag-input-wrap">
         <input type="text" id="eventInput" placeholder="例: 春季大会" onkeydown="if(event.key==='Enter')addTag('event')">
@@ -339,7 +382,7 @@ input:focus,select:focus{border-color:var(--accent);}
     </div>
 
     <!-- 対戦相手 -->
-    <div class="modal-section">
+    <div class="modal-section" id="opponentSection">
       <h3>⚔️ 対戦相手</h3>
       <div class="tag-input-wrap">
         <input type="text" id="opponentInput" placeholder="例: ××FC" onkeydown="if(event.key==='Enter')addTag('opponent')">
@@ -402,6 +445,7 @@ input:focus,select:focus{border-color:var(--accent);}
         <div class="scroll-hint-banner" id="scrollHintBanner"><span class="hint-icon" id="scrollHintIcon">👇</span><span id="scrollHintText">画面を少し下にスクロールしてから、もう一度「全画面」を押してください</span></div>
         <div class="fs-time-display" id="fsTimeDisplay">00:00</div>
         <div class="fs-player-rail" id="fsPlayerRail"></div>
+        <button type="button" class="video-record-overlay" id="videoRecordOverlay" tabindex="-1" onclick="recordSimpleScene()" aria-label="シーンを記録">👍</button>
       </div>
     </div>
 
@@ -429,14 +473,6 @@ input:focus,select:focus{border-color:var(--accent);}
       </div>
     </div>
 
-    <!-- 読み込み・出力・リセット（プレビューの下に通常表示） -->
-    <div class="panel bottom-actions">
-      <label class="bb-secondary" for="fileInput" style="cursor:pointer">📤 読み込む</label>
-      <input type="file" id="fileInput" accept=".txt" onchange="importTxt(event)" style="display:none">
-      <button class="bb-btn bb-primary" onclick="exportTxt()">📥 timestamps.txt を出力</button>
-      <button class="bb-danger" onclick="clearAll()">リセット</button>
-    </div>
-
   </div>
 
 
@@ -457,8 +493,8 @@ input:focus,select:focus{border-color:var(--accent);}
       </div>
     </div>
 
-    <!-- 選手ボタン -->
-    <div class="panel">
+    <!-- 選手ボタン（詳細モードのみ） -->
+    <div class="panel" id="playerGridPanel">
       <p class="section-label" style="margin-top:0">選手を選択（タップでSCENE生成）<span style="display:none" id="keyHintNote"></span></p>
       <div class="quick-grid" id="playerGrid"></div>
     </div>
@@ -485,12 +521,17 @@ input:focus,select:focus{border-color:var(--accent);}
 // ===== 定数・状態 =====
 const PRE_SEC  = 7;
 const POST_SEC = 3;
+const SIMPLE_PRE_SEC  = 7;   // シンプルモード：前後切り出し秒数は固定（調整UIなし）
+const SIMPLE_POST_SEC = 5;
 
 let events = [];
 let opponents = [];
 let rosterPlayers = [];
 let extraPlayers = [];
 let entryCount = 0;
+
+let recordMode = 'detail';   // 'detail' | 'simple'
+let simpleEntries = [];      // シンプルモード専用のSCENEデータ（{file, time}の配列）
 
 // 今日の試合設定
 let matchSettings = { file: '', event: '', opponent: '', date: '' };
@@ -503,18 +544,21 @@ function loadStorage() {
   const o = localStorage.getItem('hl_opponents');    opponents = o ? JSON.parse(o) : [];
   const p = localStorage.getItem('hl_roster_players'); rosterPlayers = p ? JSON.parse(p) : [];
   const m = localStorage.getItem('hl_match_settings'); if (m) matchSettings = JSON.parse(m);
+  const rm = localStorage.getItem('hl_record_mode');  recordMode = (rm === 'simple') ? 'simple' : 'detail';
 }
 function saveStorage() {
   localStorage.setItem('hl_events', JSON.stringify(events));
   localStorage.setItem('hl_opponents', JSON.stringify(opponents));
   localStorage.setItem('hl_roster_players', JSON.stringify(rosterPlayers));
   localStorage.setItem('hl_match_settings', JSON.stringify(matchSettings));
+  localStorage.setItem('hl_record_mode', recordMode);
 }
 
 // ===== 初期化 =====
 window.onload = () => {
   loadStorage();
-  if (rosterPlayers.length === 0) {
+  applyRecordModeUI(recordMode, /*skipClear=*/true);
+  if (recordMode === 'detail' && rosterPlayers.length === 0) {
     document.getElementById('rosterSetupOverlay').classList.add('show');
     setTimeout(() => document.getElementById('rosterInputFirst')?.focus(), 100);
   } else {
@@ -563,11 +607,69 @@ function closeSettings() {
   // 今日の試合設定を保存
   matchSettings.file     = document.getElementById('match_file').value.trim();
   matchSettings.date     = document.getElementById('match_date').value || todayStr();
-  matchSettings.event    = document.getElementById('match_event_sel').value;
-  matchSettings.opponent = document.getElementById('match_opponent_sel').value;
+  matchSettings.event    = document.getElementById('match_event_sel')?.value || '';
+  matchSettings.opponent = document.getElementById('match_opponent_sel')?.value || '';
   saveStorage();
   renderPlayerGrid(); // 選手グリッドも更新
   document.getElementById('settingsModal').classList.remove('show');
+}
+
+// ===== 記録モード切替（詳細／シンプル） =====
+function setRecordMode(mode) {
+  if (mode === recordMode) return;
+  const hasData = recordMode === 'detail'
+    ? document.querySelectorAll('.entry-card').length > 0
+    : simpleEntries.length > 0;
+  if (hasData) {
+    if (!confirm('記録モードを切り替えると、現在のシーン一覧はクリアされます。よろしいですか？')) return;
+  }
+  // 現在のモードのデータをクリア（配列データとSCENE一覧のDOM、両方とも空にする）
+  document.getElementById('entries').innerHTML = '';
+  if (recordMode === 'detail') {
+    entryCount = 0; extraPlayers = [];
+  } else {
+    simpleEntries = [];
+  }
+  recordMode = mode;
+  saveStorage();
+  applyRecordModeUI(mode);
+  // シンプル→詳細への切り替えで、まだ選手が1人も登録されていない場合は登録を促す
+  if (mode === 'detail' && rosterPlayers.length === 0) {
+    document.getElementById('settingsModal').classList.remove('show');
+    document.getElementById('rosterSetupOverlay').classList.add('show');
+    setTimeout(() => document.getElementById('rosterInputFirst')?.focus(), 100);
+  }
+}
+
+// skipClear: 初期化時（ページ読み込み直後）はSCENEクリアの確認ダイアログを出さずに描画だけ行う
+// シンプルモードの👍記録ボタンは「シンプルモード」かつ「動画が読み込まれている
+// （ファイル選択済み、またはライブ映像接続済み）」の両方を満たす時だけ表示する。
+// 動画がない状態で記録できてしまうと誤操作のもとになるため。
+function updateRecordOverlayVisibility() {
+  const videoReady = document.getElementById('fullscreenToggleBtn')?.classList.contains('video-ready');
+  document.getElementById('videoRecordOverlay').classList.toggle('show', recordMode === 'simple' && !!videoReady);
+}
+
+function applyRecordModeUI(mode, skipClear) {
+  document.getElementById('recordModeBtnDetail').classList.toggle('active', mode === 'detail');
+  document.getElementById('recordModeBtnSimple').classList.toggle('active', mode === 'simple');
+  document.getElementById('recordModeDesc').textContent = mode === 'detail'
+    ? '選手ボタンをタップしてSCENEを記録します（選手名・大会名・対戦相手・前後秒数を記録）。'
+    : `動画上の👍ボタン、またはストップウォッチでSCENEを記録します（ファイル名とタイムスタンプのみ。前後切り出しは前${SIMPLE_PRE_SEC}秒・後${SIMPLE_POST_SEC}秒で固定）。`;
+
+  document.getElementById('playerGridPanel').style.display = mode === 'detail' ? '' : 'none';
+  document.getElementById('rosterSection').style.display = mode === 'detail' ? '' : 'none';
+  document.getElementById('eventSection').style.display = mode === 'detail' ? '' : 'none';
+  document.getElementById('opponentSection').style.display = mode === 'detail' ? '' : 'none';
+  document.getElementById('match_event_field').style.display = mode === 'detail' ? '' : 'none';
+  document.getElementById('match_opponent_field').style.display = mode === 'detail' ? '' : 'none';
+  updateRecordOverlayVisibility();
+  document.getElementById('addSceneBtn').textContent = '＋ シーンを手動追加';
+  document.getElementById('addSceneBtn').onclick = mode === 'detail' ? addEntry : addSimpleManualEntry;
+
+  renderPlayerGrid();
+  if (mode === 'detail') { renderDetailEntries(); }
+  else { renderSimpleEntries(); }
 }
 
 function renderMatchSelects() {
@@ -664,7 +766,8 @@ function keyLabelForIndex(i) {
 function renderPlayerGrid() {
   const grid = document.getElementById('playerGrid');
   const rail = document.getElementById('fsPlayerRail');
-  const players = allPlayers();
+  // シンプルモードでは選手ボタンを使わない（誤って選手ボタン経由でSCENEが生成されるのを防ぐ）
+  const players = recordMode === 'simple' ? [] : allPlayers();
 
   if (grid) {
     grid.innerHTML = players.map((p, i) => {
@@ -773,6 +876,11 @@ function setInputMode(mode) {
   document.getElementById('swPauseBtn').disabled = true;
   updateStopwatchDisplay();
   setSceneListLocked(false);
+  updateRecordOverlayVisibility();
+  // <input type="file">はvalueが残っていると同じファイルを選び直してもchangeが発火しないため、
+  // モード切替のたびに必ずリセットしておく
+  const fileInputEl = document.getElementById('videoFileInput');
+  if (fileInputEl) fileInputEl.value = '';
 
   // UI切り替え
   document.getElementById('modeTabFile').classList.toggle('active', mode === 'file');
@@ -805,6 +913,7 @@ function loadSharedVideo(event) {
   video.style.display = 'block';
   document.getElementById('fullscreenToggleBtn')?.classList.add('video-ready');
   videoMode = true;
+  updateRecordOverlayVisibility();
   const baseName = file.name.replace(/\.[^.]+$/, '');
   // 常にファイル名を更新
   matchSettings.file = baseName;
@@ -836,6 +945,10 @@ function loadSharedVideo(event) {
 
 // ----- ライブモード（OBS仮想カメラ等） -----
 async function refreshCameraList() {
+  if (!navigator.mediaDevices?.enumerateDevices) {
+    alert('カメラ機能が利用できません。\n・http://localhost 経由（start_timestamp_editor.bat）で開いているか確認してください\n・file:// で直接開いている場合はカメラにアクセスできません');
+    return;
+  }
   try {
     // ラベル取得のため、まだ権限がなければ一旦ダミーで許可を求める
     if (!currentStream) {
@@ -851,6 +964,7 @@ async function refreshCameraList() {
     sel.innerHTML = '<option value="">カメラを選択…</option>' +
       cams.map(c => `<option value="${escapeHtml(c.deviceId)}">${escapeHtml(c.label || 'カメラ（権限を許可してください）')}</option>`).join('');
     if (prevValue && cams.some(c => c.deviceId === prevValue)) sel.value = prevValue;
+    showToast(cams.length ? `✅ カメラ一覧を更新しました（${cams.length}件）` : '⚠ カメラが見つかりませんでした');
   } catch (e) {
     alert('カメラ一覧の取得に失敗しました: ' + e.message);
   }
@@ -871,6 +985,7 @@ async function onCameraSelectChange() {
     video.srcObject = null;
     video.style.display = 'none';
     document.getElementById('fullscreenToggleBtn')?.classList.remove('video-ready');
+    updateRecordOverlayVisibility();
     return;
   }
   try {
@@ -882,6 +997,7 @@ async function onCameraSelectChange() {
     video.srcObject = stream;
     video.style.display = 'block';
     document.getElementById('fullscreenToggleBtn')?.classList.add('video-ready');
+    updateRecordOverlayVisibility();
   } catch (e) {
     alert('カメラの起動に失敗しました: ' + e.message);
   }
@@ -1148,6 +1264,98 @@ function jumpToScene(id) {
   video.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
+// ===== シンプルモード：SCENE記録・一覧 =====
+let thumbsUpFlashTimer = null;
+function flashThumbsUp() {
+  const el = document.getElementById('videoRecordOverlay');
+  if (!el) return;
+  el.classList.remove('flash');
+  void el.offsetWidth; // リフロー強制でアニメーションを再トリガー
+  el.classList.add('flash');
+  clearTimeout(thumbsUpFlashTimer);
+  thumbsUpFlashTimer = setTimeout(() => el.classList.remove('flash'), 250);
+}
+function recordSimpleScene() {
+  document.getElementById('videoRecordOverlay')?.blur();
+  const file = (matchSettings.file || '').trim();
+  const t = Math.round(currentElapsed());
+  simpleEntries.push({ file, time: t });
+  renderSimpleEntries();
+  flashThumbsUp();
+}
+function addSimpleManualEntry() {
+  const file = (matchSettings.file || '').trim();
+  if (!file) { alert('先に設定でファイル名を入力してください'); return; }
+  simpleEntries.push({ file, time: Math.round(currentElapsed()) });
+  renderSimpleEntries();
+}
+
+function renderSimpleEntries() {
+  const el = document.getElementById('entries');
+  if (simpleEntries.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text2);text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;">シーンがありません</div>';
+    updateSimplePreview();
+    return;
+  }
+  el.innerHTML = simpleEntries.map((e, i) => {
+    const id = 'simple' + i;
+    const locked = sceneListLocked;
+    return `<div class="entry-card" id="entry_${id}">
+      <div class="card-summary" onclick="toggleSimpleScene('${id}')">
+        <span class="entry-num">SCENE #${i+1}</span>
+        <span class="entry-summary-info">${formatStopwatch(e.time)}　${escapeHtml(e.file||'(未設定)')}.mp4</span>
+        <div class="card-actions" onclick="event.stopPropagation()">
+          <button class="btn-jump" onclick="jumpToSimpleScene(${e.time})" ${locked?'disabled':''}>▶ 確認</button>
+          <button class="btn-del" onclick="removeSimpleEntry(${i})" ${locked?'disabled':''}>削除</button>
+          <span class="toggle-arrow" id="arrow_${id}">▶</span>
+        </div>
+      </div>
+      <div class="entry-detail collapsed" id="detail_${id}">
+        <div class="fields" style="grid-template-columns:1fr;">
+          <div class="field"><span style="font-size:11px;color:var(--text2)">ファイル: </span><span style="font-size:12px">${escapeHtml(e.file||'未設定')}.mp4</span></div>
+          <div class="field"><span style="font-size:11px;color:var(--text2)">時刻: </span><span style="font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--accent)">${formatStopwatch(e.time)}</span></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  updateSimplePreview();
+}
+function toggleSimpleScene(id) {
+  const detail = document.getElementById(`detail_${id}`);
+  const arrow = document.getElementById(`arrow_${id}`);
+  const isOpen = !detail.classList.contains('collapsed');
+  detail.style.maxHeight = isOpen ? '0' : detail.scrollHeight + 200 + 'px';
+  detail.classList.toggle('collapsed', isOpen);
+  arrow.classList.toggle('open', !isOpen);
+}
+function jumpToSimpleScene(timeSec) {
+  if (inputMode === 'live') {
+    alert('ライブ映像のため、シーン確認（ジャンプ）は使用できません。OBSの録画ファイルを直接ご確認ください。');
+    return;
+  }
+  const video = getVideoEl();
+  if (!video || !video.src || !video.src.startsWith('blob:')) { alert('先に動画ファイルを選択してください。'); return; }
+  video.currentTime = Math.max(0, timeSec - SIMPLE_PRE_SEC);
+  video.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function removeSimpleEntry(i) {
+  simpleEntries.splice(i, 1);
+  renderSimpleEntries();
+}
+
+function getSimpleRows() {
+  return simpleEntries.map(e => `${e.file}.mp4, ${formatStopwatch(e.time)}`);
+}
+function updateSimplePreview() {
+  const header = `# 書式: ファイル名, タイムスタンプ（前後切り出し秒数は前${SIMPLE_PRE_SEC}秒・後${SIMPLE_POST_SEC}秒で固定）`;
+  const rows = getSimpleRows();
+  document.getElementById('preview').textContent = [header, ...rows].join('\n');
+  if (previewOpen) {
+    const b = document.getElementById('previewBody');
+    if (b) b.style.maxHeight = b.scrollHeight + 200 + 'px';
+  }
+}
+
 function makeMinutes() {
   let o=''; for(let i=0;i<=30;i++) o+=`<option value="${i}">${String(i).padStart(2,'0')}</option>`; return o;
 }
@@ -1185,6 +1393,12 @@ function addTempPlayer(id) {
   });
   const sel = document.getElementById(`player_${id}`); if (sel) sel.value = t;
   renderPlayerGrid(); updatePreview();
+}
+
+// 詳細モードのSCENEカードはDOM自体がデータストア（addEntry/removeEntryで都度更新）のため、
+// モード切替直後の再描画はプレビュー欄の更新のみで足りる。
+function renderDetailEntries() {
+  updatePreview();
 }
 
 function addEntry(prefill) {
@@ -1320,7 +1534,7 @@ function togglePreview() {
 }
 
 // ===== getRows / updatePreview / updateTotal =====
-function getRows() {
+function getDetailRows() {
   const rows=[];
   document.querySelectorAll('.entry-card').forEach(card=>{
     const id=card.id.replace('entry_','');
@@ -1338,8 +1552,13 @@ function getRows() {
   });
   return rows;
 }
+function getRows() { return getDetailRows(); }
+
+// updatePreview()は詳細モード側の各種inputイベント（oninput/onchange）から多数呼ばれるため、
+// 記録モードに応じて適切な描画関数へ振り分けるディスパッチャとして残す。
 function updatePreview() {
-  const rows=getRows();
+  if (recordMode === 'simple') { updateSimplePreview(); return; }
+  const rows=getDetailRows();
   const header='# 書式: ファイル名, タイムスタンプ, 前(秒), 後(秒), 大会名, 対戦相手, 日付, 選手名';
   document.getElementById('preview').textContent=[header,...rows].join('\n');
   updateTotal();
@@ -1366,7 +1585,8 @@ function updateTotal() {
 
 // ===== 出力・入力 =====
 async function exportTxt() {
-  const rows=getRows();
+  if (recordMode === 'simple') { await exportSimpleTxt(); return; }
+  const rows=getDetailRows();
   if(!rows.length){alert('シーンがありません');return;}
   const header='# 書式: ファイル名, タイムスタンプ, 前(秒), 後(秒), 大会名, 対戦相手, 日付, 選手名';
   const text=[header,...rows].join('\n');
@@ -1396,7 +1616,37 @@ async function exportTxt() {
   a.download='timestamps.txt'; a.click();
   showToast('✅ timestamps.txt をダウンロードしました');
 }
+
+async function exportSimpleTxt() {
+  if (!simpleEntries.length) { alert('シーンがありません'); return; }
+  const header = `# 書式: ファイル名, タイムスタンプ（前後切り出し秒数は前${SIMPLE_PRE_SEC}秒・後${SIMPLE_POST_SEC}秒で固定）`;
+  const text = [header, ...getSimpleRows()].join('\n');
+
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: 'timestamps_simple.txt',
+        types: [{ description: 'テキストファイル', accept: { 'text/plain': ['.txt'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      showToast('✅ timestamps_simple.txt を保存しました');
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      console.error(e);
+    }
+  }
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'timestamps_simple.txt'; a.click();
+  showToast('✅ timestamps_simple.txt をダウンロードしました');
+}
+
 function importTxt(event) {
+  if (recordMode === 'simple') { importSimpleTxt(event); return; }
   const file=event.target.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=(e)=>{
@@ -1426,10 +1676,39 @@ function importTxt(event) {
   };
   reader.readAsText(file,'utf-8');
 }
+
+function importSimpleTxt(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const lines = e.target.result.split(/\r?\n/);
+    const data = lines.filter(l => l.trim() && !l.trim().startsWith('#'));
+    if (!data.length) { alert('有効なデータが見つかりませんでした'); return; }
+    simpleEntries = [];
+    data.forEach(line => {
+      const parts = line.split(',').map(p => p.trim());
+      if (parts.length < 2) return;
+      const fileBase = parts[0].replace(/\.mp4$/i, '');
+      const [min, sec] = parts[1].split(':').map(s => parseInt(s, 10) || 0);
+      simpleEntries.push({ file: fileBase, time: min*60+sec });
+    });
+    renderSimpleEntries();
+    event.target.value = '';
+    showToast(`✅ ${data.length}件を読み込みました`);
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
 function clearAll() {
-  if(!confirm('全てリセットしますか？'))return;
-  document.getElementById('entries').innerHTML=''; entryCount=0; extraPlayers=[];
-  addEntry(); updatePreview();
+  if(!confirm('全てクリアしますか？'))return;
+  document.getElementById('entries').innerHTML = '';
+  if (recordMode === 'simple') {
+    simpleEntries = [];
+    renderSimpleEntries();
+    return;
+  }
+  entryCount=0; extraPlayers=[];
+  updatePreview();
 }
 
 // ===== ユーティリティ =====
