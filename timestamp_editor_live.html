@@ -65,12 +65,6 @@ header p{font-size:11px;color:var(--text2);margin-top:3px;}
 .file-select-wrap.hide{display:none;}
 .camera-refresh-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;font-size:11px;font-family:'Noto Sans JP',sans-serif;padding:7px 10px;cursor:pointer;}
 .camera-refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
-.record-btn{color:var(--red);}
-.record-btn:hover{border-color:var(--red);color:var(--red);}
-.record-btn:disabled{opacity:.4;cursor:not-allowed;}
-.record-btn:disabled:hover{border-color:var(--border);color:var(--text2);}
-.record-btn-stop{background:var(--red);border-color:var(--red);color:#1a0a0a;font-weight:700;}
-.record-btn-stop:hover{border-color:var(--red);color:#1a0a0a;}
 .record-indicator{display:inline-flex;align-items:center;gap:5px;font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--red);animation:recBlink 1.4s ease-in-out infinite;}
 @keyframes recBlink{0%,100%{opacity:1;}50%{opacity:.35;}}
 .record-save-note{font-size:11px;color:var(--text2);background:rgba(255,82,82,.08);border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin-top:6px;line-height:1.4;}
@@ -90,6 +84,16 @@ header p{font-size:11px;color:var(--text2);margin-top:3px;}
 .video-record-overlay:focus{outline:none;}
 .video-record-overlay:active,.video-record-overlay.flash{transform:scale(1.15);background:#8ef0c0;}
 
+/* 全画面モード中のストップウォッチ スタート/停止ボタン（ライブモード専用）。
+   横画面では特にタップミスが命取りになるため、大きめのタップ領域を確保する。
+   右側は選手ボタン帯(.fs-player-rail)が占有しているため、左下（経過時間表示の隣）に配置する。
+   表示はJS側でinputMode==='live'かつ全画面モード中のみ.showを付与して切り替える。 */
+.fs-sw-toggle-btn{display:none;position:absolute;bottom:calc(64px + env(safe-area-inset-bottom));left:calc(110px + env(safe-area-inset-left));z-index:302;width:72px;height:72px;border-radius:50%;border:2px solid rgba(255,255,255,.5);font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;line-height:1.4;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;align-items:center;justify-content:center;text-align:center;}
+.video-frame.fullscreen-mode .fs-sw-toggle-btn.show{display:flex;}
+.fs-sw-toggle-btn{background:rgba(105,240,174,.85);color:#0a0f1a;}
+.fs-sw-toggle-btn:active{transform:scale(1.08);}
+.fs-sw-toggle-btn-stop{background:rgba(255,82,82,.88);color:#1a0a0a;}
+
 /* 動画プレーヤー見出し行：左＝見出し/選択ボタン/説明文、右＝全画面ボタン。
    PCでは見出し行に収まる横並び、スマホでは右側に縦長の全画面ボタンを配置する2カラムにする。 */
 .player-head-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
@@ -108,6 +112,15 @@ header p{font-size:11px;color:var(--text2);margin-top:3px;}
   .player-head-row{align-items:stretch;}
   .fullscreen-toggle-btn{flex-direction:column;justify-content:center;width:54px;font-size:11px;padding:6px 4px;line-height:1.5;text-align:center;}
   .fullscreen-toggle-btn .fs-btn-label{font-size:11px;}
+}
+/* スマホ横画面対応：横向きにすると画面幅が760pxを超えてPC用の小さいボタンに戻ってしまうため、
+   「画面の高さが低い（=スマホ/タブレットを横に持っている）」ことを別条件として拡大対象に含める。
+   幅の条件は付けず高さだけで判定することで、横持ちのスマホ・タブレット双方をカバーする。
+   横画面はタップミスの影響が大きいため、760px版よりもさらに大きめのサイズにする。 */
+@media(max-height:500px) and (orientation:landscape){
+  .player-head-row{align-items:stretch;}
+  .fullscreen-toggle-btn{flex-direction:column;justify-content:center;width:74px;font-size:14px;padding:8px 4px;line-height:1.5;text-align:center;border-width:2px;}
+  .fullscreen-toggle-btn .fs-btn-label{font-size:13px;font-weight:700;}
 }
 
 /* 全画面モード：動画フレームをビューポート全体に固定表示（isolationで独立したスタッキングコンテキストを作り、
@@ -442,8 +455,6 @@ input:focus,select:focus{border-color:var(--accent);}
                 <option value="">カメラを選択…</option>
               </select>
               <button type="button" class="camera-refresh-btn" onclick="refreshCameraList()">🔄 一覧更新</button>
-              <button type="button" class="camera-refresh-btn record-btn" id="recordStartBtn" onclick="startLiveRecording()" disabled>⏺ 録画開始</button>
-              <button type="button" class="camera-refresh-btn record-btn record-btn-stop" id="recordStopBtn" onclick="stopLiveRecording()" style="display:none">⏹ 停止</button>
               <span class="record-indicator" id="recordIndicator" style="display:none">🔴 <span id="recordTimeDisplay">00:00</span></span>
             </div>
             <p class="record-save-note" id="recordSaveNote" style="display:none">⚠ この録画はブラウザのメモリ上に保存され、停止するとダウンロードされます（自動でカメラロールには入りません）。録画中はこのタブを閉じたり他アプリに切り替えないでください。</p>
@@ -459,6 +470,8 @@ input:focus,select:focus{border-color:var(--accent);}
         <div class="fs-time-display" id="fsTimeDisplay">00:00</div>
         <div class="fs-player-rail" id="fsPlayerRail"></div>
         <button type="button" class="video-record-overlay" id="videoRecordOverlay" tabindex="-1" onclick="recordSimpleScene()" aria-label="シーンを記録">👍</button>
+        <button type="button" class="fs-sw-toggle-btn" id="fsSwStartBtn" onclick="startStopwatch()">▶<br>スタート</button>
+        <button type="button" class="fs-sw-toggle-btn fs-sw-toggle-btn-stop" id="fsSwPauseBtn" onclick="pauseStopwatch()" style="display:none">⏸<br>停止</button>
       </div>
     </div>
 
@@ -661,6 +674,16 @@ function setRecordMode(mode) {
 function updateRecordOverlayVisibility() {
   const videoReady = document.getElementById('fullscreenToggleBtn')?.classList.contains('video-ready');
   document.getElementById('videoRecordOverlay').classList.toggle('show', recordMode === 'simple' && !!videoReady);
+}
+
+// 全画面モード中のスタート/停止ボタン（ライブモード専用）の表示・状態を更新
+function updateFsSwToggleVisibility() {
+  const showButtons = fullscreenActive && inputMode === 'live';
+  const startBtn = document.getElementById('fsSwStartBtn');
+  const pauseBtn = document.getElementById('fsSwPauseBtn');
+  if (!startBtn || !pauseBtn) return;
+  startBtn.classList.toggle('show', showButtons && !swRunning);
+  pauseBtn.classList.toggle('show', showButtons && swRunning);
 }
 
 function applyRecordModeUI(mode, skipClear) {
@@ -897,6 +920,7 @@ function setInputMode(mode) {
   updateStopwatchDisplay();
   setSceneListLocked(false);
   updateRecordOverlayVisibility();
+  updateFsSwToggleVisibility();
   // <input type="file">はvalueが残っていると同じファイルを選び直してもchangeが発火しないため、
   // モード切替のたびに必ずリセットしておく
   const fileInputEl = document.getElementById('videoFileInput');
@@ -1000,6 +1024,7 @@ async function onCameraSelectChange() {
   if (liveRecorder && liveRecorder.state !== 'inactive') {
     stopLiveRecording(); // カメラを切り替える前に録画中なら保存して止める
   }
+  if (swRunning) pauseStopwatch(); // 計測中にカメラを切り替えたら計測も一旦止める
   if (currentStream) {
     currentStream.getTracks().forEach(t => t.stop());
     currentStream = null;
@@ -1009,7 +1034,6 @@ async function onCameraSelectChange() {
     video.style.display = 'none';
     document.getElementById('fullscreenToggleBtn')?.classList.remove('video-ready');
     updateRecordOverlayVisibility();
-    document.getElementById('recordStartBtn').disabled = true;
     return;
   }
   try {
@@ -1022,14 +1046,14 @@ async function onCameraSelectChange() {
     video.style.display = 'block';
     document.getElementById('fullscreenToggleBtn')?.classList.add('video-ready');
     updateRecordOverlayVisibility();
-    document.getElementById('recordStartBtn').disabled = false;
+    updateFsSwToggleVisibility();
   } catch (e) {
     alert('カメラの起動に失敗しました: ' + e.message);
-    document.getElementById('recordStartBtn').disabled = true;
   }
 }
 
 // ----- ライブ映像のブラウザ録画 -----
+// 「スタート」（ストップウォッチ開始／Num+／全画面の選手ボタン操作開始）と連動して自動的に開始・停止する。
 // 注意：これはOBS等の外部録画の代わりではなく、簡易的なバックアップ用途。
 // 停止するまでメモリ上にデータを保持するため、長時間の録画には不向き。
 // iOS Safariはタブが非アクティブになるとストリーム/録画が止まることがある点に注意。
@@ -1047,15 +1071,15 @@ function pickRecorderMimeType() {
 }
 
 function startLiveRecording() {
-  if (!currentStream) { alert('先にカメラを選択してください'); return; }
-  if (!window.MediaRecorder) { alert('このブラウザは録画機能（MediaRecorder）に対応していません'); return; }
+  if (!currentStream) return; // カメラ未選択時は何もしない
+  if (!window.MediaRecorder) { console.warn('このブラウザはMediaRecorderに対応していません'); return; }
   if (liveRecorder && liveRecorder.state !== 'inactive') return;
 
   const mimeType = pickRecorderMimeType();
   try {
     liveRecorder = mimeType ? new MediaRecorder(currentStream, { mimeType }) : new MediaRecorder(currentStream);
   } catch (e) {
-    alert('録画の開始に失敗しました: ' + e.message);
+    console.error('録画の開始に失敗しました:', e);
     return;
   }
   liveRecordChunks = [];
@@ -1065,8 +1089,6 @@ function startLiveRecording() {
 
   liveRecorder.start(1000); // 1秒ごとにチャンクを発生させる（途中で落ちた際の被害を抑える）
   liveRecordStartTs = Date.now();
-  document.getElementById('recordStartBtn').style.display = 'none';
-  document.getElementById('recordStopBtn').style.display = '';
   document.getElementById('recordIndicator').style.display = '';
   document.getElementById('recordSaveNote').style.display = '';
   document.getElementById('cameraSelect').disabled = true;
@@ -1080,8 +1102,6 @@ function stopLiveRecording() {
   if (!liveRecorder || liveRecorder.state === 'inactive') return;
   liveRecorder.stop(); // onstopでsaveLiveRecordingが呼ばれる
   clearInterval(liveRecordTimerId); liveRecordTimerId = null;
-  document.getElementById('recordStartBtn').style.display = '';
-  document.getElementById('recordStopBtn').style.display = 'none';
   document.getElementById('recordIndicator').style.display = 'none';
   document.getElementById('cameraSelect').disabled = false;
   window.removeEventListener('beforeunload', warnBeforeUnloadDuringRecording);
@@ -1270,6 +1290,7 @@ function toggleFullscreenMode() {
   document.body.classList.toggle('fullscreen-active', fullscreenActive);
   const toggleBtn = document.getElementById('fullscreenToggleBtn');
   if (toggleBtn) toggleBtn.textContent = fullscreenActive ? '⛶ 戻る' : '⛶ 全画面';
+  updateFsSwToggleVisibility();
 }
 
 // ===== 全画面モード中の画面回転対応 =====
@@ -1313,9 +1334,13 @@ function startStopwatch() {
   swStartTimestamp = inputMode === 'live' ? Date.now() - swElapsed*1000 : Date.now();
   document.getElementById('swStartBtn').disabled=true;
   document.getElementById('swPauseBtn').disabled=false;
-  if (inputMode === 'live') setSceneListLocked(true);
+  if (inputMode === 'live') {
+    setSceneListLocked(true);
+    if (currentStream) startLiveRecording(); // スタート＝計測開始と同時に録画も開始
+  }
   swTimerId=setInterval(updateStopwatchDisplay,250);
   updateStopwatchDisplay();
+  updateFsSwToggleVisibility();
 }
 function pauseStopwatch() {
   if (videoMode) { const v=getVideoEl(); if(v&&!v.paused) v.pause(); return; }
@@ -1323,8 +1348,12 @@ function pauseStopwatch() {
   swElapsed=currentElapsed(); swRunning=false; clearInterval(swTimerId);
   document.getElementById('swStartBtn').disabled=false;
   document.getElementById('swPauseBtn').disabled=true;
-  if (inputMode === 'live') setSceneListLocked(false);
+  if (inputMode === 'live') {
+    setSceneListLocked(false);
+    stopLiveRecording(); // ストップ＝計測停止と同時に録画も停止・保存
+  }
   updateStopwatchDisplay();
+  updateFsSwToggleVisibility();
 }
 function resetStopwatch() {
   if (videoMode) {
