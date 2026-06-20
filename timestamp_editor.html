@@ -254,6 +254,14 @@ body.fullscreen-active .bottom-bar{display:none;}
 .bb-danger{background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:13px;padding:11px 16px;cursor:pointer;}
 .bb-danger:hover{border-color:var(--red);color:var(--red);}
 
+/* スマホ表示（760px以下）：固定下部バー（読み込む／timestamps.txt出力／リセット）は
+   常時表示せず、ページ本来の最下部（スクロール限界）に到達した時だけスライドインで出す。
+   PCでは従来通り常時表示のまま変更しない。 */
+@media(max-width:760px){
+  .bottom-bar{transform:translateY(100%);opacity:0;transition:transform .22s ease,opacity .22s ease;pointer-events:none;}
+  .bottom-bar.at-page-bottom{transform:translateY(0);opacity:1;pointer-events:auto;}
+}
+
 .toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(60px);opacity:0;visibility:hidden;background:var(--green);color:#0a1a0f;font-weight:700;font-size:13px;padding:10px 24px;border-radius:30px;transition:transform .3s ease,opacity .3s ease,visibility .3s;pointer-events:none;z-index:300;}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1;visibility:visible;}
 </style>
@@ -437,9 +445,13 @@ body.fullscreen-active .bottom-bar{display:none;}
 
   </div>
 </div>
+<!-- ページ本来の最下部（スクロール限界）検知用マーカー。
+     スマホ表示で固定下部バー(.bottom-bar)を必要な時だけ出すために使う。 -->
+<div id="pageBottomMarker" style="height:1px;"></div>
 
 <!-- 固定下部バー -->
-<div class="bottom-bar">
+<div class="bottom-bar" id="bottomBar">
+
   <label class="bb-secondary" for="fileInput" style="cursor:pointer">📤 読み込む</label>
   <input type="file" id="fileInput" accept=".txt" onchange="importTxt(event)" style="display:none">
   <button class="bb-btn bb-primary" onclick="exportTxt()">📥 timestamps.txt を出力</button>
@@ -815,6 +827,21 @@ if (scrollProofMarkerEl && 'IntersectionObserver' in window) {
 } else {
   // IntersectionObserver非対応環境ではチェックをスキップ（旧ブラウザ救済）
   hasScrolledPastMarker = true;
+}
+
+// ===== スマホ表示：固定下部バーをページ最下部到達時だけ出す =====
+// 読み込む／timestamps.txt出力／リセットは頻繁に使う操作ではないため、スマホでは
+// 常時画面を占有させず、ページ本来の最下部（#pageBottomMarker）までスクロールした
+// 時だけスライドインで表示し、そこから離れたら隠す。PCでは常時表示のまま変更しない。
+const pageBottomMarkerEl = document.getElementById('pageBottomMarker');
+const bottomBarEl = document.getElementById('bottomBar');
+if (pageBottomMarkerEl && bottomBarEl && 'IntersectionObserver' in window) {
+  const pageBottomObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      bottomBarEl.classList.toggle('at-page-bottom', entry.isIntersecting);
+    });
+  }, { threshold: 0 });
+  pageBottomObserver.observe(pageBottomMarkerEl);
 }
 
 function showScrollHintBanner(kind) {
