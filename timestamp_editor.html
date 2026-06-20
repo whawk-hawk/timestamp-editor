@@ -81,25 +81,17 @@ header p{font-size:11px;color:var(--text2);margin-top:3px;}
 .video-record-overlay:focus{outline:none;}
 .video-record-overlay:active,.video-record-overlay.flash{transform:scale(1.15);background:#8ef0c0;}
 
-/* 動画プレーヤー見出し行：左＝見出し/選択ボタン/説明文、右＝全画面ボタン。
-   PCでは見出し行に収まる横並び、スマホでは右側に縦長の全画面ボタンを配置する2カラムにする。 */
+/* 動画プレーヤー見出し行：見出し/選択ボタン/全画面ボタン/説明文の縦積み。 */
 .player-head-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
 .player-head-main{flex:1;min-width:0;}
 .player-head-main .panel-title{margin-bottom:0;}
 
-.fullscreen-toggle-btn{display:none;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;font-size:11px;font-family:'Noto Sans JP',sans-serif;padding:5px 10px;cursor:pointer;text-transform:none;flex-shrink:0;}
+/* 全画面ボタン：「動画ファイルを選択」ボタン（.video-select-label）と同じサイズ感に揃える。
+   色味のみグレー系（surface2/border）のまま残し、選択ボタンとの主従を区別する。 */
+.fullscreen-toggle-btn{display:none;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;font-size:12px;font-family:'Noto Sans JP',sans-serif;padding:8px 14px;cursor:pointer;text-transform:none;letter-spacing:normal;flex-shrink:0;}
 .fullscreen-toggle-btn:hover{border-color:var(--accent);color:var(--accent);}
 .fullscreen-toggle-btn.video-ready{display:inline-flex;}
 .fullscreen-toggle-btn .fs-btn-label{white-space:nowrap;}
-
-/* スマホ表示（760px以下）：全画面ボタンのタップ判定・見た目を拡大する。
-   見出し行〜説明文の高さ全体を覆う縦長ボタンにして、シーンが増えてリストが伸びても
-   常に同じ右上エリアを狙えば押せるようにする。動画ファイル選択ボタンの行や位置は変えない。 */
-@media(max-width:760px){
-  .player-head-row{align-items:stretch;}
-  .fullscreen-toggle-btn{flex-direction:column;justify-content:center;width:54px;font-size:11px;padding:6px 4px;line-height:1.5;text-align:center;}
-  .fullscreen-toggle-btn .fs-btn-label{font-size:11px;}
-}
 
 /* 全画面モード：動画フレームをビューポート全体に固定表示（isolationで独立したスタッキングコンテキストを作り、
    祖先のposition:sticky等の影響を受けず確実に最前面・背後完全非表示にする）
@@ -427,6 +419,7 @@ input:focus,select:focus{border-color:var(--accent);}
             <div class="file-select-wrap" id="fileSelectWrap">
               <label class="video-select-label" for="videoFileInput">📂 動画ファイルを選択（mp4）</label>
               <input type="file" id="videoFileInput" accept="video/mp4,video/*" onchange="loadSharedVideo(event)" style="display:none">
+              <button type="button" class="fullscreen-toggle-btn" id="fullscreenToggleBtn" onclick="toggleFullscreenMode()"><span>⛶</span><span class="fs-btn-label">全画面</span></button>
             </div>
             <div class="camera-select-wrap" id="cameraSelectWrap">
               <select id="cameraSelect" onchange="onCameraSelectChange()">
@@ -437,7 +430,6 @@ input:focus,select:focus{border-color:var(--accent);}
           </div>
           <p class="video-hint" id="videoHintText">再生と連動してタイムスタンプが記録されます。SCENEの「▶ 確認」でジャンプします。</p>
         </div>
-        <button type="button" class="fullscreen-toggle-btn" id="fullscreenToggleBtn" onclick="toggleFullscreenMode()"><span>⛶</span><span class="fs-btn-label">全画面</span></button>
       </div>
       <div class="video-frame" id="videoFrame">
         <video id="sharedVideo" controls preload="metadata" playsinline webkit-playsinline x5-playsinline></video>
@@ -1700,8 +1692,9 @@ function importSimpleTxt(event) {
 }
 
 function clearAll() {
-  if(!confirm('全てクリアしますか？'))return;
+  if(!confirm('全てクリアしますか？（選択中の動画も外れます）'))return;
   document.getElementById('entries').innerHTML = '';
+  unloadSelectedVideo();
   if (recordMode === 'simple') {
     simpleEntries = [];
     renderSimpleEntries();
@@ -1709,6 +1702,47 @@ function clearAll() {
   }
   entryCount=0; extraPlayers=[];
   updatePreview();
+}
+
+// 選択中の動画（ファイル／ライブカメラ）を外して未選択状態に戻す
+function unloadSelectedVideo() {
+  const video = getVideoEl();
+  if (!video) return;
+
+  // ファイルモード：blob URLを解放してvideo要素をリセット
+  if (video.src && video.src.startsWith('blob:')) {
+    URL.revokeObjectURL(video.src);
+  }
+  video.pause();
+  video.removeAttribute('src');
+  video.srcObject = null;
+  video.load();
+  video.style.display = 'none';
+
+  // ライブモード：起動中のカメラストリームを停止
+  if (currentStream) {
+    currentStream.getTracks().forEach(t => t.stop());
+    currentStream = null;
+  }
+  const cameraSelectEl = document.getElementById('cameraSelect');
+  if (cameraSelectEl) cameraSelectEl.value = '';
+
+  // <input type="file">のvalueをリセット（同じファイルを選び直してもchangeが発火するように）
+  const fileInputEl = document.getElementById('videoFileInput');
+  if (fileInputEl) fileInputEl.value = '';
+
+  document.getElementById('fullscreenToggleBtn')?.classList.remove('video-ready');
+  videoMode = false;
+  updateRecordOverlayVisibility();
+
+  // ストップウォッチも停止状態に戻す
+  swRunning = false; swElapsed = 0;
+  clearInterval(swTimerId); swTimerId = null;
+  const swStartBtn = document.getElementById('swStartBtn');
+  const swPauseBtn = document.getElementById('swPauseBtn');
+  if (swStartBtn) swStartBtn.disabled = false;
+  if (swPauseBtn) swPauseBtn.disabled = true;
+  updateStopwatchDisplay();
 }
 
 // ===== ユーティリティ =====
