@@ -37,6 +37,22 @@ header p{font-size:11px;color:var(--text2);margin-top:3px;}
 .video-select-label{display:inline-block;background:var(--surface2);border:1px solid var(--accent);color:var(--accent);border-radius:8px;font-size:12px;font-family:'Noto Sans JP',sans-serif;padding:8px 14px;cursor:pointer;transition:background .15s;text-transform:none;letter-spacing:normal;}
 .video-select-label:hover{background:rgba(79,195,247,.12);}
 .video-hint{font-size:11px;color:var(--text2);margin:4px 0 0;}
+
+/* 入力モード切替タブ（動画ファイル／ライブ映像） */
+.input-mode-tabs{display:flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px;flex-shrink:0;}
+.input-mode-tab{background:none;border:none;color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;padding:6px 12px;border-radius:6px;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.input-mode-tab.active{background:var(--accent);color:#0a0f1a;}
+.input-mode-tab:not(.active):hover{color:var(--text);}
+.camera-select-wrap{display:none;align-items:center;gap:6px;flex-wrap:wrap;}
+.camera-select-wrap.show{display:flex;}
+.file-select-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.file-select-wrap.hide{display:none;}
+.camera-refresh-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;font-size:11px;font-family:'Noto Sans JP',sans-serif;padding:7px 10px;cursor:pointer;}
+.camera-refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+#cameraSelect{width:auto;min-width:160px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:12px;padding:7px 10px;cursor:pointer;}
+
+/* ライブモード中の操作ロック注意書き */
+.live-lock-note{display:none;font-size:11px;color:var(--red);background:rgba(255,82,82,.08);border:1px solid var(--red);border-radius:8px;padding:8px 10px;margin-bottom:8px;}
 #sharedVideo{width:auto;max-width:100%;height:calc(100vh - 140px);max-height:calc(100vh - 140px);border-radius:8px;background:#000;margin-top:6px;display:none;}
 
 /* 動画フレーム：video要素＋全画面時に重ねるUIの土台 */
@@ -210,6 +226,8 @@ input:focus,select:focus{border-color:var(--accent);}
 .btn-del{background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;}
 .btn-del:hover{border-color:var(--red);color:var(--red);}
 .btn-add{background:var(--green);color:#0a1a0f;font-size:12px;padding:7px 12px;border-radius:8px;border:none;font-family:'Noto Sans JP',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;}
+.btn-jump:disabled,.btn-del:disabled,.btn-add:disabled{opacity:.3;cursor:not-allowed;}
+.btn-jump:disabled:hover{background:none;}
 .toggle-all-btn{background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;font-size:11px;font-family:'Noto Sans JP',sans-serif;padding:5px 10px;cursor:pointer;transition:all .15s;}
 .toggle-all-btn:hover{border-color:var(--accent);color:var(--accent);}
 
@@ -357,12 +375,24 @@ input:focus,select:focus{border-color:var(--accent);}
     <div class="panel">
       <div class="player-head-row" id="playerHeadRow">
         <div class="player-head-main">
-          <div class="panel-title" style="display:flex;align-items:center;gap:8px;">
+          <div class="panel-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span>🎬 動画プレーヤー</span>
-            <label class="video-select-label" for="videoFileInput">📂 動画ファイルを選択（mp4）</label>
-            <input type="file" id="videoFileInput" accept="video/mp4,video/*" onchange="loadSharedVideo(event)" style="display:none">
+            <div class="input-mode-tabs">
+              <button type="button" class="input-mode-tab active" id="modeTabFile" onclick="setInputMode('file')">📂 動画ファイル</button>
+              <button type="button" class="input-mode-tab" id="modeTabLive" onclick="setInputMode('live')">📷 ライブ映像</button>
+            </div>
+            <div class="file-select-wrap" id="fileSelectWrap">
+              <label class="video-select-label" for="videoFileInput">📂 動画ファイルを選択（mp4）</label>
+              <input type="file" id="videoFileInput" accept="video/mp4,video/*" onchange="loadSharedVideo(event)" style="display:none">
+            </div>
+            <div class="camera-select-wrap" id="cameraSelectWrap">
+              <select id="cameraSelect" onchange="onCameraSelectChange()">
+                <option value="">カメラを選択…</option>
+              </select>
+              <button type="button" class="camera-refresh-btn" onclick="refreshCameraList()">🔄 一覧更新</button>
+            </div>
           </div>
-          <p class="video-hint">再生と連動してタイムスタンプが記録されます。SCENEの「▶ 確認」でジャンプします。</p>
+          <p class="video-hint" id="videoHintText">再生と連動してタイムスタンプが記録されます。SCENEの「▶ 確認」でジャンプします。</p>
         </div>
         <button type="button" class="fullscreen-toggle-btn" id="fullscreenToggleBtn" onclick="toggleFullscreenMode()"><span>⛶</span><span class="fs-btn-label">全画面</span></button>
       </div>
@@ -439,8 +469,9 @@ input:focus,select:focus{border-color:var(--accent);}
         <span style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;">シーン一覧</span>
         <button class="toggle-all-btn" id="toggleAllBtn" onclick="toggleAllEntries()">▼ すべて展開</button>
       </div>
+      <p id="liveLockNote" class="live-lock-note">🔒 計測中はシーンの確認・削除・手動追加はできません。Num- で停止すると操作できます。</p>
       <div id="entries"></div>
-      <button class="btn-add" style="width:100%;margin-top:4px;padding:10px;" onclick="addEntry()">＋ シーンを手動追加</button>
+      <button class="btn-add" id="addSceneBtn" style="width:100%;margin-top:4px;padding:10px;" onclick="addEntry()">＋ シーンを手動追加</button>
     </div>
 
   </div>
@@ -709,10 +740,63 @@ function showFsLikeReaction(btnEl) {
   setTimeout(() => pop.remove(), 1300);
 }
 
-// ===== 動画 =====
+// ===== 動画入力（ファイル／ライブカメラ） =====
 let swElapsed = 0, swRunning = false, swStartTimestamp = 0, swTimerId = null;
-let videoMode = false;
+let videoMode = false;       // true: 動画ファイルの再生位置をタイマー基準にする（ファイルモードのみ）
+let inputMode = 'file';      // 'file' | 'live'
+let currentStream = null;    // ライブモードで使用中のMediaStream
 
+// ----- モード切替 -----
+function setInputMode(mode) {
+  if (mode === inputMode) return;
+  const video = getVideoEl();
+
+  // 切り替え前の後始末
+  if (inputMode === 'file' && video?.src?.startsWith('blob:')) {
+    URL.revokeObjectURL(video.src);
+  }
+  if (inputMode === 'live' && currentStream) {
+    currentStream.getTracks().forEach(t => t.stop());
+    currentStream = null;
+  }
+
+  inputMode = mode;
+  video.pause();
+  video.removeAttribute('src');
+  video.srcObject = null;
+  video.load();
+  video.style.display = 'none';
+  document.getElementById('fullscreenToggleBtn')?.classList.remove('video-ready');
+  videoMode = false;
+  swRunning = false; swElapsed = 0; clearInterval(swTimerId); swTimerId = null;
+  document.getElementById('swStartBtn').disabled = false;
+  document.getElementById('swPauseBtn').disabled = true;
+  updateStopwatchDisplay();
+  setSceneListLocked(false);
+
+  // UI切り替え
+  document.getElementById('modeTabFile').classList.toggle('active', mode === 'file');
+  document.getElementById('modeTabLive').classList.toggle('active', mode === 'live');
+  document.getElementById('fileSelectWrap').classList.toggle('hide', mode !== 'file');
+  document.getElementById('cameraSelectWrap').classList.toggle('show', mode === 'live');
+
+  if (mode === 'file') {
+    video.setAttribute('controls', '');
+    video.removeAttribute('autoplay');
+    video.removeAttribute('muted');
+    document.getElementById('videoHintText').textContent =
+      '再生と連動してタイムスタンプが記録されます。SCENEの「▶ 確認」でジャンプします。';
+  } else {
+    video.removeAttribute('controls');
+    video.setAttribute('autoplay', '');
+    video.setAttribute('muted', '');
+    document.getElementById('videoHintText').textContent =
+      'OBSの「仮想カメラ」を選択すると、ここにライブ映像が表示されます（見るだけ・操作はできません）。スタートは Num+、ストップは Num- でOBSの録画と同時に行えます。';
+    if (navigator.mediaDevices?.enumerateDevices) refreshCameraList();
+  }
+}
+
+// ----- ファイルモード -----
 function loadSharedVideo(event) {
   const file = event.target.files[0]; if (!file) return;
   const video = document.getElementById('sharedVideo');
@@ -749,6 +833,60 @@ function loadSharedVideo(event) {
   };
   video.onseeked = updateStopwatchDisplay;
 }
+
+// ----- ライブモード（OBS仮想カメラ等） -----
+async function refreshCameraList() {
+  try {
+    // ラベル取得のため、まだ権限がなければ一旦ダミーで許可を求める
+    if (!currentStream) {
+      try {
+        const tmp = await navigator.mediaDevices.getUserMedia({ video: true });
+        tmp.getTracks().forEach(t => t.stop());
+      } catch (e) { /* 許可されなくても一覧自体は取れる場合がある */ }
+    }
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter(d => d.kind === 'videoinput');
+    const sel = document.getElementById('cameraSelect');
+    const prevValue = sel.value;
+    sel.innerHTML = '<option value="">カメラを選択…</option>' +
+      cams.map(c => `<option value="${escapeHtml(c.deviceId)}">${escapeHtml(c.label || 'カメラ（権限を許可してください）')}</option>`).join('');
+    if (prevValue && cams.some(c => c.deviceId === prevValue)) sel.value = prevValue;
+  } catch (e) {
+    alert('カメラ一覧の取得に失敗しました: ' + e.message);
+  }
+}
+if (navigator.mediaDevices?.enumerateDevices) {
+  navigator.mediaDevices.addEventListener?.('devicechange', () => { if (inputMode === 'live') refreshCameraList(); });
+}
+
+async function onCameraSelectChange() {
+  const sel = document.getElementById('cameraSelect');
+  const deviceId = sel.value;
+  const video = getVideoEl();
+  if (currentStream) {
+    currentStream.getTracks().forEach(t => t.stop());
+    currentStream = null;
+  }
+  if (!deviceId) {
+    video.srcObject = null;
+    video.style.display = 'none';
+    document.getElementById('fullscreenToggleBtn')?.classList.remove('video-ready');
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: deviceId } },
+      audio: false
+    });
+    currentStream = stream;
+    video.srcObject = stream;
+    video.style.display = 'block';
+    document.getElementById('fullscreenToggleBtn')?.classList.add('video-ready');
+  } catch (e) {
+    alert('カメラの起動に失敗しました: ' + e.message);
+  }
+}
+
 function getVideoEl() { return document.getElementById('sharedVideo'); }
 
 // ===== ストップウォッチ =====
@@ -942,9 +1080,11 @@ if (window.visualViewport) {
 function startStopwatch() {
   if (videoMode) { const v=getVideoEl(); if(v?.paused) v.play(); return; }
   if (swRunning) return;
-  swRunning=true; swStartTimestamp=Date.now();
+  swRunning=true;
+  swStartTimestamp = inputMode === 'live' ? Date.now() - swElapsed*1000 : Date.now();
   document.getElementById('swStartBtn').disabled=true;
   document.getElementById('swPauseBtn').disabled=false;
+  if (inputMode === 'live') setSceneListLocked(true);
   swTimerId=setInterval(updateStopwatchDisplay,250);
   updateStopwatchDisplay();
 }
@@ -954,6 +1094,7 @@ function pauseStopwatch() {
   swElapsed=currentElapsed(); swRunning=false; clearInterval(swTimerId);
   document.getElementById('swStartBtn').disabled=false;
   document.getElementById('swPauseBtn').disabled=true;
+  if (inputMode === 'live') setSceneListLocked(false);
   updateStopwatchDisplay();
 }
 function resetStopwatch() {
@@ -964,6 +1105,7 @@ function resetStopwatch() {
     document.getElementById('swPauseBtn').disabled=true;
     updateStopwatchDisplay(); return;
   }
+  if (inputMode === 'live' && swRunning) { alert('ストップウォッチが動作中はリセットできません。先に停止（Num-）してください。'); return; }
   if (!confirm('ストップウォッチをリセットしますか？')) return;
   swRunning=false; swElapsed=0; clearInterval(swTimerId); swTimerId=null;
   document.getElementById('swStartBtn').disabled=false;
@@ -971,8 +1113,32 @@ function resetStopwatch() {
   updateStopwatchDisplay();
 }
 
+// ===== ライブ中のSCENE一覧ロック =====
+// ストップウォッチ動作中（スタート〜停止前）は、確認・削除・手動追加など
+// 一覧をいじる操作を一切禁止する。「▶確認」はそもそもライブ映像をシークできず誤動作の元になるため。
+let sceneListLocked = false;
+function setSceneListLocked(locked) {
+  sceneListLocked = locked;
+  document.querySelectorAll('.btn-jump, .btn-del').forEach(b => b.disabled = locked);
+  const addBtn = document.getElementById('addSceneBtn');
+  if (addBtn) addBtn.disabled = locked;
+  const note = document.getElementById('liveLockNote');
+  if (note) note.style.display = locked ? 'block' : 'none';
+}
+
+// ===== Num+ / Num- でOBSのホットキーと同時操作（ライブモード時のみ） =====
+document.addEventListener('keydown', (e) => {
+  if (inputMode !== 'live') return;
+  if (e.code === 'NumpadAdd') { e.preventDefault(); startStopwatch(); }
+  else if (e.code === 'NumpadSubtract') { e.preventDefault(); pauseStopwatch(); }
+});
+
 // ===== SCENEカード =====
 function jumpToScene(id) {
+  if (inputMode === 'live') {
+    alert('ライブ映像のため、シーン確認（ジャンプ）は使用できません。OBSの録画ファイルを直接ご確認ください。');
+    return;
+  }
   const video = getVideoEl();
   if (!video || !video.src || !video.src.startsWith('blob:')) { alert('先に動画ファイルを選択してください。'); return; }
   const min = parseInt(document.getElementById(`ts_min_${id}`)?.value||'0',10);
@@ -1062,6 +1228,10 @@ function addEntry(prefill) {
       </div>
     </div>`;
   document.getElementById('entries').appendChild(div);
+  if (sceneListLocked) {
+    div.querySelector('.btn-jump').disabled = true;
+    div.querySelector('.btn-del').disabled = true;
+  }
   if (prefill) {
     document.getElementById(`file_${id}`).value = prefill.file||'';
     const evSel=document.getElementById(`event_${id}`); if(evSel) evSel.value=prefill.event||'';
@@ -1195,14 +1365,36 @@ function updateTotal() {
 }
 
 // ===== 出力・入力 =====
-function exportTxt() {
+async function exportTxt() {
   const rows=getRows();
   if(!rows.length){alert('シーンがありません');return;}
   const header='# 書式: ファイル名, タイムスタンプ, 前(秒), 後(秒), 大会名, 対戦相手, 日付, 選手名';
-  const blob=new Blob([[header,...rows].join('\n')],{type:'text/plain;charset=utf-8'});
+  const text=[header,...rows].join('\n');
+
+  // Chrome/Edge: 保存先・ファイル名を毎回選択できるFile System Access APIを優先使用
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: 'timestamps.txt',
+        types: [{ description: 'テキストファイル', accept: { 'text/plain': ['.txt'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      showToast('✅ timestamps.txt を保存しました');
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return; // ユーザーがキャンセル
+      console.error(e);
+      // 失敗時は下のフォールバックに続く
+    }
+  }
+
+  // フォールバック（Safari等）：通常のダウンロード
+  const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='timestamps.txt'; a.click();
-  showToast('✅ timestamps.txt を保存しました');
+  showToast('✅ timestamps.txt をダウンロードしました');
 }
 function importTxt(event) {
   const file=event.target.files[0]; if(!file) return;
