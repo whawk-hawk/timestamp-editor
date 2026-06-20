@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ハイライト タイムスタンプ入力</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Share+Tech+Mono&display=swap');
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;
+  --accent:#4fc3f7;--green:#69f0ae;--red:#ff5252;
+  --text:#e8eaf0;--text2:#8892a4;--border:#2e3347;--radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;padding:16px 16px 72px;}
+.wrapper{max-width:1600px;margin:0 auto;}
+
+/* ヘッダー */
+header{text-align:center;margin-bottom:16px;}
+header h1{font-size:19px;font-weight:700;letter-spacing:.08em;color:var(--accent);}
+header p{font-size:11px;color:var(--text2);margin-top:3px;}
+.settings-btn{background:none;border:1px solid var(--border);color:var(--text2);border-radius:20px;font-size:11px;padding:4px 14px;margin-top:6px;cursor:pointer;transition:all .15s;}
+.settings-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* 2カラム */
+.two-col{display:grid;grid-template-columns:70fr 30fr;gap:14px;align-items:start;}
+@media(max-width:760px){.two-col{grid-template-columns:1fr;}}
+.left-sticky{position:sticky;top:12px;}
+@media(max-width:760px){.left-sticky{position:static;}}
+
+/* パネル */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+.panel:last-child{margin-bottom:0;}
+.panel-title{font-size:11px;color:var(--text2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
+
+/* 動画 */
+.video-select-label{display:inline-block;background:var(--surface2);border:1px solid var(--accent);color:var(--accent);border-radius:8px;font-size:12px;font-family:'Noto Sans JP',sans-serif;padding:8px 14px;cursor:pointer;transition:background .15s;text-transform:none;letter-spacing:normal;}
+.video-select-label:hover{background:rgba(79,195,247,.12);}
+.video-hint{font-size:11px;color:var(--text2);margin:4px 0 0;}
+#sharedVideo{width:auto;max-width:100%;height:calc(100vh - 140px);max-height:calc(100vh - 140px);border-radius:8px;background:#000;margin-top:6px;display:none;}
+
+/* 動画フレーム：video要素＋全画面時に重ねるUIの土台 */
+.video-frame{position:relative;display:flex;justify-content:center;}
+
+/* 全画面切り替えボタン（パネルタイトル内、PCかつ動画選択後のみ表示） */
+.fullscreen-toggle-btn{display:none;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;font-size:11px;font-family:'Noto Sans JP',sans-serif;padding:5px 10px;cursor:pointer;text-transform:none;}
+.fullscreen-toggle-btn:hover{border-color:var(--accent);color:var(--accent);}
+.fullscreen-toggle-btn.video-ready{display:inline-block;}
+
+/* 全画面モード：動画フレームをビューポート全体に固定表示（isolationで独立したスタッキングコンテキストを作り、
+   祖先のposition:sticky等の影響を受けず確実に最前面・背後完全非表示にする）
+   --vvh: JSでwindow.visualViewport.heightを反映するCSS変数(px値)。
+   Safariのアドレスバー増減で100vhが変動し、ボタンタップの度に画面が揺れる問題を避けるため、
+   高さの基準はできるだけ --vvh（実測のビジュアルビューポート高さ）を優先して使う。 */
+.video-frame.fullscreen-mode{position:fixed;inset:0;z-index:2147483000;isolation:isolate;background:#000;display:flex;align-items:center;justify-content:center;
+  height:100dvh;height:var(--vvh, 100dvh);}
+/* ネイティブの動画コントロール（再生・音量・全画面等）が画面下端で隠れないよう、
+   動画の高さをコントロールバー分（48px）差し引いて確保する */
+.video-frame.fullscreen-mode #sharedVideo{max-height:calc(var(--vvh, 100dvh) - 48px);max-width:100vw;width:auto;height:calc(100% - 48px);margin:0;border-radius:0;}
+body.fullscreen-active{overflow:hidden;position:fixed;left:0;right:0;width:100%;}
+
+/* 全画面モードを閉じるボタン */
+.fullscreen-close-btn{display:none;position:absolute;top:calc(10px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));z-index:303;background:rgba(15,15,15,.55);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:6px;font-size:12px;font-family:'Noto Sans JP',sans-serif;padding:6px 10px;cursor:pointer;touch-action:manipulation;}
+.video-frame.fullscreen-mode .fullscreen-close-btn{display:block;}
+
+/* 全画面時：左下の経過時間表示（ネイティブcontrolsバーの上に重ならないよう48px分上げる） */
+.fs-time-display{display:none;position:absolute;bottom:calc(64px + env(safe-area-inset-bottom));left:calc(16px + env(safe-area-inset-left));z-index:302;background:rgba(0,0,0,.45);border-radius:6px;padding:6px 12px;font-family:'Share Tech Mono',monospace;font-size:18px;font-weight:700;color:rgba(255,255,255,.92);}
+.video-frame.fullscreen-mode .fs-time-display{display:block;}
+
+/* 全画面時：右側に縦一列で重なる選手ボタン帯（帯の外側・下部のネイティブcontrolsは邪魔しない） */
+.fs-player-rail{display:none;position:absolute;top:calc(16px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));bottom:118px;z-index:301;flex-direction:column;justify-content:center;align-items:flex-end;gap:14px;pointer-events:auto;background:rgba(0,0,0,.01);touch-action:manipulation;}
+.video-frame.fullscreen-mode .fs-player-rail{display:flex;}
+.fs-player-btn{display:flex;align-items:center;background:rgba(15,15,15,.5);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-family:'Noto Sans JP',sans-serif;padding:6px 12px;cursor:pointer;white-space:nowrap;touch-action:manipulation;}
+.fs-player-btn .fs-key{font-size:13px;color:rgba(255,255,255,.55);min-width:16px;text-align:center;flex-shrink:0;}
+.fs-player-btn .fs-name{font-size:18px;margin-left:8px;}
+.fs-player-btn:active{background:rgba(79,195,247,.5);}
+.fs-player-btn.tapped{background:rgba(79,195,247,.6);border-color:var(--accent);}
+
+/* 合計バー */
+.total-bar{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text2);}
+.total-value{font-family:'Share Tech Mono',monospace;font-size:16px;color:var(--accent);font-weight:bold;}
+.total-warning{color:var(--red);display:none;font-size:11px;}
+
+/* プレビュー折りたたみ */
+.preview-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;margin-bottom:6px;}
+.preview-toggle span{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;}
+.preview-arrow{font-size:10px;color:var(--text2);transition:transform .2s;display:inline-block;}
+.preview-arrow.open{transform:rotate(90deg);}
+.preview-body{overflow:hidden;transition:max-height .25s ease;}
+.preview-body pre{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--green);line-height:1.8;white-space:pre-wrap;word-break:break-all;}
+
+/* ストップウォッチ：上段（時間表示／リセット）と下段（スタート／停止）の列を揃える */
+.sw-display-row{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:6px;margin-bottom:10px;}
+.sw-display{font-family:'Share Tech Mono',monospace;font-size:20px;font-weight:bold;color:var(--accent);letter-spacing:.05em;text-align:center;}
+.sw-display.running{color:var(--green);}
+.sw-reset-inline{background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;font-size:13px;padding:4px 10px;cursor:pointer;transition:all .15s;justify-self:center;}
+.sw-reset-inline:hover{border-color:var(--red);color:var(--red);}
+.sw-controls{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.sw-btn{border:none;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;padding:10px 12px;cursor:pointer;transition:all .15s;flex:1;}
+.sw-btn.start{background:var(--green);color:#0a1a0f;}
+.sw-btn.pause{background:var(--accent);color:#0a0f1a;}
+.sw-btn:disabled{opacity:.35;cursor:default;}
+
+/* 選手グリッド */
+.section-label{font-size:11px;color:var(--text2);letter-spacing:.06em;margin:12px 0 6px;}
+.quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
+.quick-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;padding:12px 6px;cursor:pointer;transition:all .12s;text-align:center;}
+.quick-btn:active{transform:scale(.96);}
+.quick-btn.tapped{background:rgba(79,195,247,.2);border-color:var(--accent);color:var(--accent);}
+.quick-btn .key-hint{display:none;font-size:10px;color:var(--text2);margin-top:2px;}
+@media(min-width:761px){.quick-btn .key-hint{display:block;}}
+
+/* SCENEカード */
+.entry-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;transition:border-color .15s;}
+.entry-card:hover{border-color:var(--accent);}
+.card-summary{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;}
+.entry-num{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em;white-space:nowrap;}
+.entry-summary-info{flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.card-actions{display:flex;align-items:center;gap:5px;flex-shrink:0;}
+.toggle-arrow{font-size:10px;color:var(--text2);transition:transform .2s;display:inline-block;width:12px;text-align:center;}
+.toggle-arrow.open{transform:rotate(90deg);}
+.entry-detail{overflow:hidden;transition:max-height .25s ease;}
+.entry-detail.collapsed{max-height:0!important;}
+.entry-detail .fields{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+
+/* フォーム */
+.field{margin-bottom:0;}
+.field label{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;}
+input[type=text],input[type=date],select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:13px;padding:7px 10px;outline:none;}
+input:focus,select:focus{border-color:var(--accent);}
+.filename-wrap{display:flex;align-items:center;gap:6px;}
+.filename-wrap input{flex:1;}
+.filename-ext{color:var(--text2);font-size:12px;font-family:'Share Tech Mono',monospace;white-space:nowrap;}
+.ts-wrap{display:flex;align-items:center;gap:5px;}
+.ts-wrap select{width:68px;}
+.ts-sep{color:var(--text2);font-family:'Share Tech Mono',monospace;}
+.sec-val{color:var(--accent);font-size:12px;}
+.sec-wrap input[type=range]{width:100%;accent-color:var(--accent);}
+
+/* ボタン */
+.btn-jump{background:none;border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;transition:background .15s;}
+.btn-jump:hover{background:rgba(79,195,247,.15);}
+.btn-del{background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;}
+.btn-del:hover{border-color:var(--red);color:var(--red);}
+.btn-add{background:var(--green);color:#0a1a0f;font-size:12px;padding:7px 12px;border-radius:8px;border:none;font-family:'Noto Sans JP',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;}
+.toggle-all-btn{background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;font-size:11px;font-family:'Noto Sans JP',sans-serif;padding:5px 10px;cursor:pointer;transition:all .15s;}
+.toggle-all-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* タグ */
+.tag-input-wrap{display:flex;gap:6px;}
+.tag-input-wrap input{flex:1;}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
+.tag{background:var(--surface2);border:1px solid var(--border);border-radius:20px;font-size:11px;padding:3px 10px;display:flex;align-items:center;gap:5px;}
+.tag .del{cursor:pointer;color:var(--text2);font-size:13px;line-height:1;}
+.tag .del:hover{color:var(--red);}
+
+/* 設定モーダル */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(5,8,15,.78);z-index:100;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;}
+.modal-overlay.show{display:flex;}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;max-width:520px;width:100%;margin:auto;}
+.modal-box h2{font-size:16px;color:var(--accent);margin-bottom:14px;}
+.modal-section{margin-bottom:20px;}
+.modal-section:last-child{margin-bottom:0;}
+.modal-section h3{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
+.modal-close-btn{width:100%;margin-top:16px;background:var(--accent);color:#0a0f1a;font-size:14px;padding:12px;border-radius:8px;border:none;font-family:'Noto Sans JP',sans-serif;font-weight:700;cursor:pointer;}
+
+/* 今日の試合設定（モーダル内） */
+.match-setting{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:10px;}
+.match-setting .fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.match-badge{display:inline-block;background:rgba(79,195,247,.1);border:1px solid var(--accent);color:var(--accent);border-radius:6px;font-size:11px;padding:2px 10px;margin-bottom:8px;}
+
+/* 初回セットアップ */
+.roster-overlay{display:none;position:fixed;inset:0;background:rgba(5,8,15,.78);z-index:200;align-items:center;justify-content:center;padding:20px;}
+.roster-overlay.show{display:flex;}
+.roster-modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:400px;width:100%;}
+.roster-modal h2{font-size:17px;color:var(--accent);margin-bottom:10px;}
+.roster-desc{font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:14px;}
+.roster-done-btn{width:100%;margin-top:12px;background:var(--accent);color:#0a0f1a;font-size:14px;padding:12px;border-radius:8px;border:none;font-family:'Noto Sans JP',sans-serif;font-weight:700;cursor:pointer;}
+
+/* 固定下部バー */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 20px;z-index:50;display:flex;gap:10px;align-items:center;}
+body.fullscreen-active .bottom-bar{display:none;}
+.bb-btn{border:none;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:13px;padding:11px 16px;cursor:pointer;}
+.bb-primary{background:var(--accent);color:#0a0f1a;flex:2;}
+.bb-secondary{background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:13px;padding:11px 16px;cursor:pointer;text-align:center;display:inline-block;flex:1;}
+.bb-secondary:hover{border-color:var(--accent);color:var(--accent);}
+.bb-danger{background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:13px;padding:11px 16px;cursor:pointer;}
+.bb-danger:hover{border-color:var(--red);color:var(--red);}
+
+.toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(60px);opacity:0;visibility:hidden;background:var(--green);color:#0a1a0f;font-weight:700;font-size:13px;padding:10px 24px;border-radius:30px;transition:transform .3s ease,opacity .3s ease,visibility .3s;pointer-events:none;z-index:300;}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;visibility:visible;}
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+<header>
+  <h1>⚽ ハイライト タイムスタンプ入力</h1>
+  <p>選手ボタンをタップするとその瞬間のタイムスタンプでシーンが自動生成されます</p>
+  <button class="settings-btn" onclick="openSettings()">⚙ 設定（選手名・大会名・対戦相手・今日の試合）</button>
+</header>
+
+<!-- ===== 設定モーダル ===== -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-box">
+    <h2>⚙ 設定</h2>
+
+    <!-- 今日の試合設定 -->
+    <div class="modal-section">
+      <h3>🏟 今日の試合設定</h3>
+      <p style="font-size:11px;color:var(--text2);margin-bottom:8px">ここで設定した内容が、タイムスタンプ記録時に自動でSCENEに入ります。</p>
+      <div class="match-setting">
+        <div class="fields">
+          <div class="field">
+            <label>ファイル名</label>
+            <div class="filename-wrap">
+              <input type="text" id="match_file" placeholder="game1">
+              <span class="filename-ext">.mp4</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>日付</label>
+            <input type="date" id="match_date">
+          </div>
+          <div class="field">
+            <label>大会名</label>
+            <div id="match_event_wrap"></div>
+          </div>
+          <div class="field">
+            <label>対戦相手</label>
+            <div id="match_opponent_wrap"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 選手名 -->
+    <div class="modal-section">
+      <h3>👤 選手名</h3>
+      <div class="tag-input-wrap">
+        <input type="text" id="rosterInput" placeholder="例: たいが" onkeydown="if(event.key==='Enter')addRosterPlayer()">
+        <button class="btn-add" onclick="addRosterPlayer()">追加</button>
+      </div>
+      <div class="tags" id="rosterTags"></div>
+    </div>
+
+    <!-- 大会名 -->
+    <div class="modal-section">
+      <h3>🏆 大会名</h3>
+      <div class="tag-input-wrap">
+        <input type="text" id="eventInput" placeholder="例: 春季大会" onkeydown="if(event.key==='Enter')addTag('event')">
+        <button class="btn-add" onclick="addTag('event')">追加</button>
+      </div>
+      <div class="tags" id="eventTags"></div>
+    </div>
+
+    <!-- 対戦相手 -->
+    <div class="modal-section">
+      <h3>⚔️ 対戦相手</h3>
+      <div class="tag-input-wrap">
+        <input type="text" id="opponentInput" placeholder="例: ××FC" onkeydown="if(event.key==='Enter')addTag('opponent')">
+        <button class="btn-add" onclick="addTag('opponent')">追加</button>
+      </div>
+      <div class="tags" id="opponentTags"></div>
+    </div>
+
+    <button class="modal-close-btn" onclick="closeSettings()">完了</button>
+  </div>
+</div>
+
+<!-- ===== 初回セットアップ ===== -->
+<div class="roster-overlay" id="rosterSetupOverlay">
+  <div class="roster-modal">
+    <h2>⚽ はじめに：選手名を登録してください</h2>
+    <p class="roster-desc">チームの選手名を登録します。後から「⚙ 設定」で変更できます。</p>
+    <div class="tag-input-wrap">
+      <input type="text" id="rosterInputFirst" placeholder="例: たいが" onkeydown="if(event.key==='Enter')addRosterPlayerFirst()">
+      <button class="btn-add" onclick="addRosterPlayerFirst()">追加</button>
+    </div>
+    <div class="tags" id="rosterTagsFirst"></div>
+    <button class="roster-done-btn" onclick="completeRosterSetup()">登録して始める</button>
+  </div>
+</div>
+
+<!-- ===== メイン2カラム ===== -->
+<div class="two-col">
+
+  <!-- 左：sticky（動画・合計・プレビュー） -->
+  <div class="left-sticky">
+
+    <div class="panel">
+      <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>🎬 動画プレーヤー</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <label class="video-select-label" for="videoFileInput">📂 動画ファイルを選択（mp4）</label>
+          <input type="file" id="videoFileInput" accept="video/mp4,video/*" onchange="loadSharedVideo(event)" style="display:none">
+          <button type="button" class="fullscreen-toggle-btn" id="fullscreenToggleBtn" onclick="toggleFullscreenMode()">⛶ 全画面</button>
+        </div>
+      </div>
+      <p class="video-hint">再生と連動してタイムスタンプが記録されます。SCENEの「▶ 確認」でジャンプします。</p>
+      <div class="video-frame" id="videoFrame">
+        <video id="sharedVideo" controls preload="metadata" playsinline webkit-playsinline x5-playsinline></video>
+        <button type="button" class="fullscreen-close-btn" id="fullscreenCloseBtn" onclick="toggleFullscreenMode()">✕ 閉じる</button>
+        <div class="fs-time-display" id="fsTimeDisplay">00:00</div>
+        <div class="fs-player-rail" id="fsPlayerRail"></div>
+      </div>
+    </div>
+
+
+    <div class="total-bar" id="totalBar">
+      <span>⏱ 動画合計時間</span>
+      <div>
+        <span class="total-value" id="totalValue">00:00</span>
+        <span class="total-warning" id="totalWarning"> ⚠ 2分超</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="preview-toggle" onclick="togglePreview()">
+        <span>プレビュー</span>
+        <span class="preview-arrow" id="previewArrow">▶</span>
+      </div>
+      <div class="preview-body" id="previewBody" style="max-height:0">
+        <pre id="preview"># ここにプレビューが表示されます</pre>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 右：ストップウォッチ・選手・SCENEリスト -->
+  <div>
+
+    <!-- ストップウォッチ -->
+    <div class="panel" style="text-align:center">
+      <div class="sw-display-row">
+        <div class="sw-display" id="stopwatchDisplay">00:00</div>
+        <button class="sw-reset-inline" onclick="resetStopwatch()">↺ リセット</button>
+      </div>
+      <div class="sw-controls">
+        <button class="sw-btn start" id="swStartBtn" onclick="startStopwatch()">▶ スタート</button>
+        <button class="sw-btn pause" id="swPauseBtn" onclick="pauseStopwatch()" disabled>⏸ 停止</button>
+      </div>
+    </div>
+
+    <!-- 選手ボタン -->
+    <div class="panel">
+      <p class="section-label" style="margin-top:0">選手を選択（タップでSCENE生成）<span style="display:none" id="keyHintNote"></span></p>
+      <div class="quick-grid" id="playerGrid"></div>
+    </div>
+
+    <!-- SCENEリスト -->
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;">シーン一覧</span>
+        <button class="toggle-all-btn" id="toggleAllBtn" onclick="toggleAllEntries()">▼ すべて展開</button>
+      </div>
+      <div id="entries"></div>
+      <button class="btn-add" style="width:100%;margin-top:4px;padding:10px;" onclick="addEntry()">＋ シーンを手動追加</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- 固定下部バー -->
+<div class="bottom-bar">
+  <label class="bb-secondary" for="fileInput" style="cursor:pointer">📤 読み込む</label>
+  <input type="file" id="fileInput" accept=".txt" onchange="importTxt(event)" style="display:none">
+  <button class="bb-btn bb-primary" onclick="exportTxt()">📥 timestamps.txt を出力</button>
+  <button class="bb-danger" onclick="clearAll()">リセット</button>
+</div>
+
+<div class="toast" id="toast">✅ 保存しました</div>
+</div>
+
+<script>
+// ===== 定数・状態 =====
+const PRE_SEC  = 7;
+const POST_SEC = 3;
+
+let events = [];
+let opponents = [];
+let rosterPlayers = [];
+let extraPlayers = [];
+let entryCount = 0;
+
+// 今日の試合設定
+let matchSettings = { file: '', event: '', opponent: '', date: '' };
+
+function allPlayers() { return [...rosterPlayers, ...extraPlayers]; }
+
+// ===== localStorage =====
+function loadStorage() {
+  const e = localStorage.getItem('hl_events');       events = e ? JSON.parse(e) : [];
+  const o = localStorage.getItem('hl_opponents');    opponents = o ? JSON.parse(o) : [];
+  const p = localStorage.getItem('hl_roster_players'); rosterPlayers = p ? JSON.parse(p) : [];
+  const m = localStorage.getItem('hl_match_settings'); if (m) matchSettings = JSON.parse(m);
+}
+function saveStorage() {
+  localStorage.setItem('hl_events', JSON.stringify(events));
+  localStorage.setItem('hl_opponents', JSON.stringify(opponents));
+  localStorage.setItem('hl_roster_players', JSON.stringify(rosterPlayers));
+  localStorage.setItem('hl_match_settings', JSON.stringify(matchSettings));
+}
+
+// ===== 初期化 =====
+window.onload = () => {
+  loadStorage();
+  if (rosterPlayers.length === 0) {
+    document.getElementById('rosterSetupOverlay').classList.add('show');
+    setTimeout(() => document.getElementById('rosterInputFirst')?.focus(), 100);
+  } else {
+    openSettings();
+  }
+  renderPlayerGrid();
+  initNumberKeyShortcuts();
+};
+
+// ===== 選手ボタンのナンバーキー操作（PCのみ。1〜9キー/テンキー1〜9→1〜9人目、0キー→10人目） =====
+function initNumberKeyShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // テキスト入力欄・select・モーダル表示中は数字キーを無視（誤操作防止）
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    if (document.getElementById('settingsModal')?.classList.contains('show')) return;
+    if (document.getElementById('rosterSetupOverlay')?.classList.contains('show')) return;
+
+    let index = -1;
+    if (e.code && e.code.startsWith('Digit')) index = (Number(e.code.slice(5)) + 9) % 10;
+    else if (e.code && e.code.startsWith('Numpad') && /^Numpad\d$/.test(e.code)) index = (Number(e.code.slice(6)) + 9) % 10;
+    else if (/^[0-9]$/.test(e.key)) index = (Number(e.key) + 9) % 10;
+    if (index < 0) return;
+
+    const players = allPlayers();
+    if (index >= players.length) return;
+
+    e.preventDefault();
+    const btn = document.querySelector(`.quick-btn[data-player-index="${index}"]`)
+      || document.querySelector(`.fs-player-btn[data-player-index="${index}"]`);
+    tapPlayer(players[index], btn || null);
+  });
+}
+
+// ===== 設定モーダル =====
+function openSettings() {
+  renderTags();
+  renderRosterTags();
+  // 今日の試合設定を反映
+  document.getElementById('match_file').value = matchSettings.file || '';
+  document.getElementById('match_date').value = matchSettings.date || todayStr();
+  renderMatchSelects();
+  document.getElementById('settingsModal').classList.add('show');
+}
+function closeSettings() {
+  // 今日の試合設定を保存
+  matchSettings.file     = document.getElementById('match_file').value.trim();
+  matchSettings.date     = document.getElementById('match_date').value || todayStr();
+  matchSettings.event    = document.getElementById('match_event_sel').value;
+  matchSettings.opponent = document.getElementById('match_opponent_sel').value;
+  saveStorage();
+  renderPlayerGrid(); // 選手グリッドも更新
+  document.getElementById('settingsModal').classList.remove('show');
+}
+
+function renderMatchSelects() {
+  const evOpts = events.length
+    ? events.map(e => `<option value="${escapeHtml(e)}" ${matchSettings.event===e?'selected':''}>${escapeHtml(e)}</option>`).join('')
+    : '<option value="">（大会名を追加してください）</option>';
+  document.getElementById('match_event_wrap').innerHTML =
+    `<select id="match_event_sel">${evOpts}</select>`;
+
+  const opOpts = opponents.length
+    ? opponents.map(o => `<option value="${escapeHtml(o)}" ${matchSettings.opponent===o?'selected':''}>${escapeHtml(o)}</option>`).join('')
+    : '<option value="">（対戦相手を追加してください）</option>';
+  document.getElementById('match_opponent_wrap').innerHTML =
+    `<select id="match_opponent_sel">${opOpts}</select>`;
+}
+
+function updateAllSelects() {
+  // SCENEカード内のevent/opponentセレクトを更新
+  document.querySelectorAll('.entry-card').forEach(card => {
+    const id = card.id.replace('entry_', '');
+    const ew = document.getElementById(`event_wrap_${id}`);
+    const ow = document.getElementById(`opponent_wrap_${id}`);
+    const ev = document.getElementById(`event_${id}`)?.value;
+    const op = document.getElementById(`opponent_${id}`)?.value;
+    if (ew) { ew.innerHTML = makeEventSelect(id); if (ev) document.getElementById(`event_${id}`).value = ev; }
+    if (ow) { ow.innerHTML = makeOpponentSelect(id); if (op) document.getElementById(`opponent_${id}`).value = op; }
+  });
+  renderMatchSelects();
+  updatePreview();
+}
+
+// ===== タグ・ロスター =====
+function addTag(type) {
+  const list = type === 'opponent' ? opponents : events;
+  const input = document.getElementById(type === 'opponent' ? 'opponentInput' : 'eventInput');
+  const val = input.value.trim(); if (!val) return;
+  if (!list.includes(val)) list.push(val);
+  input.value = ''; saveStorage(); renderTags(); updateAllSelects();
+}
+function removeTag(type, index) {
+  const list = type === 'opponent' ? opponents : events;
+  list.splice(index, 1); saveStorage(); renderTags(); updateAllSelects();
+}
+function renderTags() {
+  document.getElementById('eventTags').innerHTML =
+    events.map((t,i) => `<span class="tag">${escapeHtml(t)}<span class="del" onclick="removeTag('event',${i})">×</span></span>`).join('');
+  document.getElementById('opponentTags').innerHTML =
+    opponents.map((t,i) => `<span class="tag">${escapeHtml(t)}<span class="del" onclick="removeTag('opponent',${i})">×</span></span>`).join('');
+}
+
+function addRosterPlayer() {
+  const input = document.getElementById('rosterInput');
+  const val = input.value.trim(); if (!val) return;
+  if (!rosterPlayers.includes(val)) rosterPlayers.push(val);
+  input.value = ''; saveStorage(); renderRosterTags(); renderPlayerGrid(); input.focus();
+}
+function addRosterPlayerFirst() {
+  const input = document.getElementById('rosterInputFirst');
+  const val = input.value.trim(); if (!val) return;
+  if (!rosterPlayers.includes(val)) rosterPlayers.push(val);
+  input.value = ''; renderRosterTagsFirst(); input.focus();
+}
+function removeRosterPlayer(index) {
+  rosterPlayers.splice(index, 1); saveStorage(); renderRosterTags(); renderRosterTagsFirst(); renderPlayerGrid();
+}
+function renderRosterTags() {
+  const el = document.getElementById('rosterTags'); if (!el) return;
+  el.innerHTML = rosterPlayers.map((p,i) =>
+    `<span class="tag">${escapeHtml(p)}<span class="del" onclick="removeRosterPlayer(${i})">×</span></span>`
+  ).join('');
+}
+function renderRosterTagsFirst() {
+  const el = document.getElementById('rosterTagsFirst'); if (!el) return;
+  el.innerHTML = rosterPlayers.map((p,i) =>
+    `<span class="tag">${escapeHtml(p)}<span class="del" onclick="removeRosterPlayer(${i});renderRosterTagsFirst()">×</span></span>`
+  ).join('');
+}
+function completeRosterSetup() {
+  if (rosterPlayers.length === 0) { alert('最低1人は選手名を登録してください'); return; }
+  saveStorage();
+  document.getElementById('rosterSetupOverlay').classList.remove('show');
+  renderPlayerGrid();
+}
+function openRosterSettings() { openSettings(); }
+
+// ===== 選手グリッド（タップでSCENE生成） =====
+function keyLabelForIndex(i) {
+  // 1人目→1キー, ... 9人目→9キー, 10人目→0キー（11人目以降はキー割り当てなし）
+  if (i < 9) return String(i + 1);
+  if (i === 9) return '0';
+  return '';
+}
+
+function renderPlayerGrid() {
+  const grid = document.getElementById('playerGrid');
+  const rail = document.getElementById('fsPlayerRail');
+  const players = allPlayers();
+
+  if (grid) {
+    grid.innerHTML = players.map((p, i) => {
+      const key = keyLabelForIndex(i);
+      const keyHint = key ? `<span class="key-hint">${key}</span>` : '';
+      return `<button type="button" class="quick-btn" data-player-index="${i}" onclick="tapPlayer('${escapeHtml(p)}',this)">${escapeHtml(p)}${keyHint}</button>`;
+    }).join('');
+  }
+  if (rail) {
+    rail.innerHTML = players.map((p, i) => {
+      const key = keyLabelForIndex(i);
+      const keySpan = key ? `<span class="fs-key">${key}</span>` : '';
+      return `<button type="button" class="fs-player-btn" data-player-index="${i}" onclick="tapPlayer('${escapeHtml(p)}',this)">${keySpan}<span class="fs-name">${escapeHtml(p)}</span></button>`;
+    }).join('');
+  }
+}
+
+function tapPlayer(player, btnEl) {
+  const t = Math.round(currentElapsed());
+  // タップ後にボタンへフォーカスが残ると、iOS Safariがフォーカス位置を画面内に
+  // スクロールさせようとして画面が揺れることがあるため、即座にフォーカスを外す。
+  if (btnEl && typeof btnEl.blur === 'function') btnEl.blur();
+  // ボタンを一瞬ハイライト（通常グリッド・全画面レールどちらも、同じ選手の全ボタンをハイライト）
+  const idx = btnEl?.dataset?.playerIndex;
+  const allBtns = idx !== undefined
+    ? document.querySelectorAll(`[data-player-index="${idx}"]`)
+    : [];
+  allBtns.forEach(b => {
+    b.classList.add('tapped');
+    setTimeout(() => b.classList.remove('tapped'), 400);
+  });
+
+  // 未入力のデフォルトSCENE#1があれば削除
+  removeUntouchedDefaultEntryIfAlone();
+
+  // SCENEを生成（matchSettingsから自動入力）
+  addEntry({
+    file:     matchSettings.file || '',
+    event:    matchSettings.event || '',
+    opponent: matchSettings.opponent || '',
+    date:     matchSettings.date || todayStr(),
+    min:      Math.floor(t / 60),
+    sec:      t % 60,
+    pre:      PRE_SEC,
+    post:     POST_SEC,
+    player:   player,
+  });
+}
+
+// ===== 動画 =====
+let swElapsed = 0, swRunning = false, swStartTimestamp = 0, swTimerId = null;
+let videoMode = false;
+
+function loadSharedVideo(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const video = document.getElementById('sharedVideo');
+  if (video.src && video.src.startsWith('blob:')) URL.revokeObjectURL(video.src);
+  video.src = URL.createObjectURL(file);
+  video.style.display = 'block';
+  document.getElementById('fullscreenToggleBtn')?.classList.add('video-ready');
+  videoMode = true;
+  const baseName = file.name.replace(/\.[^.]+$/, '');
+  // 常にファイル名を更新
+  matchSettings.file = baseName;
+  saveStorage();
+  // 設定モーダルのファイル名欄に反映
+  const matchFileEl = document.getElementById('match_file');
+  if (matchFileEl) matchFileEl.value = baseName;
+  // 既存SCENEカードのファイル名を反映
+  document.querySelectorAll('.entry-card').forEach(card => {
+    const id = card.id.replace('entry_', '');
+    const fileEl = document.getElementById(`file_${id}`);
+    if (fileEl) { fileEl.value = baseName; updateSummary(parseInt(id, 10)); }
+  });
+  updatePreview();
+  video.onplay = () => {
+    swRunning = true;
+    document.getElementById('swStartBtn').disabled = true;
+    document.getElementById('swPauseBtn').disabled = false;
+    if (!swTimerId) swTimerId = setInterval(updateStopwatchDisplay, 250);
+  };
+  video.onpause = () => {
+    swRunning = false;
+    document.getElementById('swStartBtn').disabled = false;
+    document.getElementById('swPauseBtn').disabled = true;
+    clearInterval(swTimerId); swTimerId = null; updateStopwatchDisplay();
+  };
+  video.onseeked = updateStopwatchDisplay;
+}
+function getVideoEl() { return document.getElementById('sharedVideo'); }
+
+// ===== ストップウォッチ =====
+function formatStopwatch(s) {
+  return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+}
+function currentElapsed() {
+  if (videoMode) return getVideoEl()?.currentTime || 0;
+  return swRunning ? swElapsed + (Date.now() - swStartTimestamp) / 1000 : swElapsed;
+}
+function updateStopwatchDisplay() {
+  const el = document.getElementById('stopwatchDisplay');
+  const text = formatStopwatch(currentElapsed());
+  const running = videoMode ? !getVideoEl()?.paused : swRunning;
+  el.textContent = text;
+  el.classList.toggle('running', running);
+  const fsEl = document.getElementById('fsTimeDisplay');
+  if (fsEl) fsEl.textContent = text;
+}
+
+// ===== 全画面モード（PC・iPhone共通。CSSによる疑似全画面） =====
+// iOS Safariはアドレスバーの表示/非表示でビューポート高さが変動し、
+// 100vh基準のレイアウトだとボタン操作のたびに画面が揺れる。
+// window.visualViewport の実測高さを --vvh としてCSS変数に反映し続けることで、
+// 全画面モード中のレイアウトをアドレスバーの増減に追従させて安定させる。
+function updateViewportHeightVar() {
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.style.setProperty('--vvh', `${h}px`);
+}
+window.addEventListener('resize', updateViewportHeightVar);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', updateViewportHeightVar);
+  // iOSはスクロールでもvisualViewportが変化するため、全画面中は揺れ防止のためscrollも監視
+  window.visualViewport.addEventListener('scroll', updateViewportHeightVar);
+}
+updateViewportHeightVar();
+
+let fullscreenActive = false;
+let videoFrameOriginalParent = null;
+let videoFrameOriginalNextSibling = null;
+let fullscreenScrollY = 0;
+function toggleFullscreenMode() {
+  fullscreenActive = !fullscreenActive;
+  const frame = document.getElementById('videoFrame');
+  if (frame) {
+    frame.classList.toggle('fullscreen-mode', fullscreenActive);
+    if (fullscreenActive) {
+      // 祖先(.left-sticky)の position:sticky が position:fixed の包含ブロックに干渉し、
+      // 「全画面のはずが元の左カラム範囲内にしか黒背景が広がらず、右側パネルが透けて見える」
+      // 不具合が起きるため、全画面化している間は body 直下へ一時的に移動する。
+      videoFrameOriginalParent = frame.parentNode;
+      videoFrameOriginalNextSibling = frame.nextSibling;
+      document.body.appendChild(frame);
+    } else if (videoFrameOriginalParent) {
+      // 元の位置へ戻す
+      videoFrameOriginalParent.insertBefore(frame, videoFrameOriginalNextSibling);
+      videoFrameOriginalParent = null;
+      videoFrameOriginalNextSibling = null;
+    }
+  }
+  if (fullscreenActive) {
+    // 全画面開始時点のスクロール位置を保存し、bodyをfixedにしてページ自体のスクロールを止める。
+    // iOS Safariはスクロール可能な状態でタップ操作が起きると、その都度アドレスバーの
+    // 表示状態を再計算して画面が揺れるため、スクロールを物理的に封じるのが最も確実。
+    fullscreenScrollY = window.scrollY || window.pageYOffset || 0;
+    document.body.style.top = `-${fullscreenScrollY}px`;
+    updateViewportHeightVar();
+  } else {
+    document.body.style.top = '';
+    window.scrollTo(0, fullscreenScrollY);
+  }
+  document.body.classList.toggle('fullscreen-active', fullscreenActive);
+  document.body.style.overflow = fullscreenActive ? 'hidden' : '';
+  const toggleBtn = document.getElementById('fullscreenToggleBtn');
+  if (toggleBtn) toggleBtn.textContent = fullscreenActive ? '⛶ 戻る' : '⛶ 全画面';
+}
+function startStopwatch() {
+  if (videoMode) { const v=getVideoEl(); if(v?.paused) v.play(); return; }
+  if (swRunning) return;
+  swRunning=true; swStartTimestamp=Date.now();
+  document.getElementById('swStartBtn').disabled=true;
+  document.getElementById('swPauseBtn').disabled=false;
+  swTimerId=setInterval(updateStopwatchDisplay,250);
+  updateStopwatchDisplay();
+}
+function pauseStopwatch() {
+  if (videoMode) { const v=getVideoEl(); if(v&&!v.paused) v.pause(); return; }
+  if (!swRunning) return;
+  swElapsed=currentElapsed(); swRunning=false; clearInterval(swTimerId);
+  document.getElementById('swStartBtn').disabled=false;
+  document.getElementById('swPauseBtn').disabled=true;
+  updateStopwatchDisplay();
+}
+function resetStopwatch() {
+  if (videoMode) {
+    if (!confirm('動画を最初に戻しますか？')) return;
+    const v=getVideoEl(); if(v){v.pause();v.currentTime=0;}
+    document.getElementById('swStartBtn').disabled=false;
+    document.getElementById('swPauseBtn').disabled=true;
+    updateStopwatchDisplay(); return;
+  }
+  if (!confirm('ストップウォッチをリセットしますか？')) return;
+  swRunning=false; swElapsed=0; clearInterval(swTimerId); swTimerId=null;
+  document.getElementById('swStartBtn').disabled=false;
+  document.getElementById('swPauseBtn').disabled=true;
+  updateStopwatchDisplay();
+}
+
+// ===== SCENEカード =====
+function jumpToScene(id) {
+  const video = getVideoEl();
+  if (!video || !video.src || !video.src.startsWith('blob:')) { alert('先に動画ファイルを選択してください。'); return; }
+  const min = parseInt(document.getElementById(`ts_min_${id}`)?.value||'0',10);
+  const sec = parseInt(document.getElementById(`ts_sec_${id}`)?.value||'0',10);
+  const pre = parseFloat(document.getElementById(`pre_${id}`)?.value||'0');
+  video.currentTime = Math.max(0, min*60+sec-pre);
+  video.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function makeMinutes() {
+  let o=''; for(let i=0;i<=30;i++) o+=`<option value="${i}">${String(i).padStart(2,'0')}</option>`; return o;
+}
+function makeSeconds() {
+  let o=''; for(let i=0;i<=59;i++) o+=`<option value="${i}">${String(i).padStart(2,'0')}</option>`; return o;
+}
+function makeEventSelect(id) {
+  const opts = events.length
+    ? events.map(e=>`<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('')
+    : '<option value="">（大会名を追加してください）</option>';
+  return `<select id="event_${id}" onchange="updatePreview()">${opts}</select>`;
+}
+function makeOpponentSelect(id) {
+  const opts = opponents.length
+    ? opponents.map(o=>`<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('')
+    : '<option value="">（対戦相手を追加してください）</option>';
+  return `<select id="opponent_${id}" onchange="updatePreview()">${opts}</select>`;
+}
+function makePlayerSelect(id) {
+  const opts = allPlayers().length
+    ? allPlayers().map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('')
+    : '<option value="">（選手を登録してください）</option>';
+  return `<select id="player_${id}" onchange="updateSummary(${id});updatePreview()">${opts}</select>
+    <button type="button" class="btn-add" style="margin-top:5px;width:100%;font-size:11px;padding:5px;" onclick="addTempPlayer(${id})">＋ 一時追加</button>`;
+}
+function addTempPlayer(id) {
+  const val = prompt('選手名を入力してください（このシーンのみ）'); if (!val?.trim()) return;
+  const t = val.trim();
+  if (!allPlayers().includes(t)) extraPlayers.push(t);
+  document.querySelectorAll('.entry-card').forEach(card => {
+    const cid = card.id.replace('entry_','');
+    const w = document.getElementById(`player_wrap_${cid}`);
+    const cv = document.getElementById(`player_${cid}`)?.value;
+    if (w) { w.innerHTML = makePlayerSelect(cid); if (cv) document.getElementById(`player_${cid}`).value = cv; }
+  });
+  const sel = document.getElementById(`player_${id}`); if (sel) sel.value = t;
+  renderPlayerGrid(); updatePreview();
+}
+
+function addEntry(prefill) {
+  entryCount++;
+  const id = entryCount;
+  const div = document.createElement('div');
+  div.className = 'entry-card'; div.id = `entry_${id}`;
+  div.innerHTML = `
+    <div class="card-summary" onclick="toggleEntryDetail(${id})">
+      <span class="entry-num" id="num_${id}">SCENE #?</span>
+      <span class="entry-summary-info" id="summary_${id}">—</span>
+      <div class="card-actions" onclick="event.stopPropagation()">
+        <button class="btn-jump" onclick="jumpToScene(${id})">▶ 確認</button>
+        <button class="btn-del" onclick="removeEntry(${id})">削除</button>
+        <span class="toggle-arrow" id="arrow_${id}">▶</span>
+      </div>
+    </div>
+    <div class="entry-detail collapsed" id="detail_${id}">
+      <div class="fields">
+        <div class="field"><label>ファイル名</label>
+          <div class="filename-wrap">
+            <input type="text" id="file_${id}" placeholder="game1" oninput="updateSummary(${id});updatePreview()">
+            <span class="filename-ext">.mp4</span>
+          </div></div>
+        <div class="field"><label>大会名</label><div id="event_wrap_${id}">${makeEventSelect(id)}</div></div>
+        <div class="field"><label>対戦相手</label><div id="opponent_wrap_${id}">${makeOpponentSelect(id)}</div></div>
+        <div class="field"><label>日付</label><input type="date" id="date_${id}" value="${todayStr()}" oninput="updatePreview()"></div>
+        <div class="field"><label>タイムスタンプ（分：秒）</label>
+          <div class="ts-wrap">
+            <select id="ts_min_${id}" onchange="updateSummary(${id});updatePreview()">${makeMinutes()}</select>
+            <span class="ts-sep">:</span>
+            <select id="ts_sec_${id}" onchange="updateSummary(${id});updatePreview()">${makeSeconds()}</select>
+          </div></div>
+        <div class="field"><label>前の切り出し秒数 <span class="sec-val" id="pre_val_${id}">${PRE_SEC}</span>秒</label>
+          <div class="sec-wrap"><input type="range" min="0" max="30" value="${PRE_SEC}" id="pre_${id}"
+            oninput="document.getElementById('pre_val_${id}').textContent=this.value;updatePreview()"></div></div>
+        <div class="field"><label>後の切り出し秒数 <span class="sec-val" id="post_val_${id}">${POST_SEC}</span>秒</label>
+          <div class="sec-wrap"><input type="range" min="0" max="30" value="${POST_SEC}" id="post_${id}"
+            oninput="document.getElementById('post_val_${id}').textContent=this.value;updatePreview()"></div></div>
+        <div class="field"><label>選手名</label><div id="player_wrap_${id}">${makePlayerSelect(id)}</div></div>
+      </div>
+    </div>`;
+  document.getElementById('entries').appendChild(div);
+  if (prefill) {
+    document.getElementById(`file_${id}`).value = prefill.file||'';
+    const evSel=document.getElementById(`event_${id}`); if(evSel) evSel.value=prefill.event||'';
+    const opSel=document.getElementById(`opponent_${id}`); if(opSel) opSel.value=prefill.opponent||'';
+    document.getElementById(`date_${id}`).value = prefill.date||todayStr();
+    document.getElementById(`ts_min_${id}`).value = prefill.min??0;
+    document.getElementById(`ts_sec_${id}`).value = prefill.sec??0;
+    if(prefill.pre!==undefined){document.getElementById(`pre_${id}`).value=prefill.pre;document.getElementById(`pre_val_${id}`).textContent=prefill.pre;}
+    if(prefill.post!==undefined){document.getElementById(`post_${id}`).value=prefill.post;document.getElementById(`post_val_${id}`).textContent=prefill.post;}
+    const plSel=document.getElementById(`player_${id}`); if(plSel&&prefill.player) plSel.value=prefill.player;
+  }
+  renumberEntries(); updateSummary(id); updatePreview();
+}
+
+function toggleEntryDetail(id) {
+  const detail=document.getElementById(`detail_${id}`);
+  const arrow=document.getElementById(`arrow_${id}`);
+  const isOpen=!detail.classList.contains('collapsed');
+  detail.style.maxHeight=isOpen?'0':detail.scrollHeight+500+'px';
+  detail.classList.toggle('collapsed',isOpen);
+  arrow.classList.toggle('open',!isOpen);
+}
+
+let allExpanded=false;
+function toggleAllEntries() {
+  allExpanded=!allExpanded;
+  document.querySelectorAll('.entry-card').forEach(card=>{
+    const id=card.id.replace('entry_','');
+    const detail=document.getElementById(`detail_${id}`);
+    const arrow=document.getElementById(`arrow_${id}`);
+    if(!detail)return;
+    detail.style.maxHeight=allExpanded?detail.scrollHeight+500+'px':'0';
+    detail.classList.toggle('collapsed',!allExpanded);
+    arrow.classList.toggle('open',allExpanded);
+  });
+  document.getElementById('toggleAllBtn').textContent=allExpanded?'▲ すべて折りたたむ':'▼ すべて展開';
+}
+
+function updateSummary(id) {
+  const player=document.getElementById(`player_${id}`)?.value||'—';
+  const min=document.getElementById(`ts_min_${id}`)?.value||'00';
+  const sec=document.getElementById(`ts_sec_${id}`)?.value||'00';
+  const ts=`${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  const el=document.getElementById(`summary_${id}`);
+  if(el) el.textContent=`${ts}  ${player}`;
+}
+
+function removeEntry(id) {
+  document.getElementById(`entry_${id}`)?.remove();
+  renumberEntries(); updatePreview();
+}
+
+function renumberEntries() {
+  document.querySelectorAll('.entry-card').forEach((card,i)=>{
+    const numEl=card.querySelector('.entry-num');
+    if(numEl) numEl.textContent=`SCENE #${i+1}`;
+  });
+}
+
+function isUntouchedDefaultEntry(card) {
+  const id=card.id.replace('entry_','');
+  const min=document.getElementById(`ts_min_${id}`)?.value;
+  const sec=document.getElementById(`ts_sec_${id}`)?.value;
+  const pre=document.getElementById(`pre_${id}`)?.value;
+  const post=document.getElementById(`post_${id}`)?.value;
+  // タイムスタンプが0:00かつ前後秒数がデフォルト値なら「未入力」とみなす
+  return min==='0' && sec==='0'
+    && String(pre)===String(PRE_SEC) && String(post)===String(POST_SEC);
+}
+function removeUntouchedDefaultEntryIfAlone() {
+  const cards=document.querySelectorAll('.entry-card');
+  if(cards.length===1 && isUntouchedDefaultEntry(cards[0])){
+    const id=cards[0].id.replace('entry_','');
+    removeEntry(parseInt(id,10));
+  }
+}
+
+// ===== プレビュー折りたたみ =====
+let previewOpen=false;
+function togglePreview() {
+  previewOpen=!previewOpen;
+  const body=document.getElementById('previewBody');
+  const arrow=document.getElementById('previewArrow');
+  body.style.maxHeight=previewOpen?body.scrollHeight+200+'px':'0';
+  arrow.classList.toggle('open',previewOpen);
+}
+
+// ===== getRows / updatePreview / updateTotal =====
+function getRows() {
+  const rows=[];
+  document.querySelectorAll('.entry-card').forEach(card=>{
+    const id=card.id.replace('entry_','');
+    const file=(document.getElementById(`file_${id}`)?.value||'').trim();
+    const min=parseInt(document.getElementById(`ts_min_${id}`)?.value||'0',10);
+    const sec=parseInt(document.getElementById(`ts_sec_${id}`)?.value||'0',10);
+    const ts=`${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    const pre=document.getElementById(`pre_${id}`)?.value||PRE_SEC;
+    const post=document.getElementById(`post_${id}`)?.value||POST_SEC;
+    const event=document.getElementById(`event_${id}`)?.value||'';
+    const opponent=document.getElementById(`opponent_${id}`)?.value||'';
+    const date=(document.getElementById(`date_${id}`)?.value||'').trim();
+    const player=document.getElementById(`player_${id}`)?.value||'';
+    rows.push(`${file}.mp4, ${ts}, ${pre}, ${post}, ${event}, ${opponent}, ${date}, ${player}`);
+  });
+  return rows;
+}
+function updatePreview() {
+  const rows=getRows();
+  const header='# 書式: ファイル名, タイムスタンプ, 前(秒), 後(秒), 大会名, 対戦相手, 日付, 選手名';
+  document.getElementById('preview').textContent=[header,...rows].join('\n');
+  updateTotal();
+  document.querySelectorAll('.entry-card').forEach(card=>{
+    const id=parseInt(card.id.replace('entry_',''),10);
+    if(!isNaN(id)) updateSummary(id);
+  });
+  if(previewOpen){
+    const b=document.getElementById('previewBody'); if(b) b.style.maxHeight=b.scrollHeight+200+'px';
+  }
+}
+function updateTotal() {
+  let total=0;
+  document.querySelectorAll('.entry-card').forEach(card=>{
+    const id=card.id.replace('entry_','');
+    const pre=parseFloat(document.getElementById(`pre_${id}`)?.value||0);
+    const post=parseFloat(document.getElementById(`post_${id}`)?.value||0);
+    total+=pre+post;
+  });
+  const m=Math.floor(total/60),s=Math.floor(total%60);
+  document.getElementById('totalValue').textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  document.getElementById('totalWarning').style.display=total>120?'inline':'none';
+}
+
+// ===== 出力・入力 =====
+function exportTxt() {
+  const rows=getRows();
+  if(!rows.length){alert('シーンがありません');return;}
+  const header='# 書式: ファイル名, タイムスタンプ, 前(秒), 後(秒), 大会名, 対戦相手, 日付, 選手名';
+  const blob=new Blob([[header,...rows].join('\n')],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='timestamps.txt'; a.click();
+  showToast('✅ timestamps.txt を保存しました');
+}
+function importTxt(event) {
+  const file=event.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    const lines=e.target.result.split(/\r?\n/);
+    const data=lines.filter(l=>l.trim()&&!l.trim().startsWith('#'));
+    if(!data.length){alert('有効なデータが見つかりませんでした');return;}
+    document.getElementById('entries').innerHTML='';
+    entryCount=0; extraPlayers=[];
+    data.forEach(line=>{
+      const parts=line.split(',').map(p=>p.trim());
+      if(parts.length<7)return;
+      let filename,ts,pre,post,ev,opponent,date,player;
+      if(parts.length>=8){
+        [filename,ts,pre,post,ev,opponent,date,player]=parts;
+      } else {
+        [filename,ts,pre,post,ev,date,player]=parts; opponent='';
+      }
+      const fileBase=filename.replace(/\.mp4$/i,'');
+      const [min,sec]=ts.split(':').map(s=>parseInt(s,10)||0);
+      if(ev&&!events.includes(ev))events.push(ev);
+      if(opponent&&!opponents.includes(opponent))opponents.push(opponent);
+      if(player&&!allPlayers().includes(player)&&!extraPlayers.includes(player))extraPlayers.push(player);
+      addEntry({file:fileBase,event:ev,opponent,date,min,sec,pre:parseInt(pre,10),post:parseInt(post,10),player});
+    });
+    saveStorage(); renderTags(); event.target.value='';
+    showToast(`✅ ${data.length}件を読み込みました`);
+  };
+  reader.readAsText(file,'utf-8');
+}
+function clearAll() {
+  if(!confirm('全てリセットしますか？'))return;
+  document.getElementById('entries').innerHTML=''; entryCount=0; extraPlayers=[];
+  addEntry(); updatePreview();
+}
+
+// ===== ユーティリティ =====
+function todayStr() {
+  const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function showToast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+</script>
+</body>
+</html>
