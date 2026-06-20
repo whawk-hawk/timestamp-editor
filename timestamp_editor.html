@@ -67,14 +67,17 @@ body.fullscreen-active{overflow:hidden;}
 .fullscreen-close-btn{display:none;position:absolute;top:calc(10px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));z-index:303;background:rgba(15,15,15,.55);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:6px;font-size:12px;font-family:'Noto Sans JP',sans-serif;padding:6px 10px;cursor:pointer;touch-action:manipulation;}
 .video-frame.fullscreen-mode .fullscreen-close-btn{display:block;}
 
-/* 全画面時：左下の経過時間表示（ネイティブcontrolsバーの上に重ならないよう48px分上げる） */
-.fs-time-display{display:none;position:absolute;bottom:calc(64px + env(safe-area-inset-bottom));left:calc(16px + env(safe-area-inset-left));z-index:302;background:rgba(0,0,0,.45);border-radius:6px;padding:6px 12px;font-family:'Share Tech Mono',monospace;font-size:18px;font-weight:700;color:rgba(255,255,255,.92);}
+/* 全画面時：左下の経過時間表示（ネイティブcontrolsバーの上に重ならないよう48px分上げる）
+   表示専用要素のため、念のためpointer-events:noneでタップを横取りしないようにする */
+.fs-time-display{display:none;position:absolute;bottom:calc(64px + env(safe-area-inset-bottom));left:calc(16px + env(safe-area-inset-left));z-index:302;background:rgba(0,0,0,.45);border-radius:6px;padding:6px 12px;font-family:'Share Tech Mono',monospace;font-size:18px;font-weight:700;color:rgba(255,255,255,.92);pointer-events:none;}
 .video-frame.fullscreen-mode .fs-time-display{display:block;}
 
-/* 全画面時：右側に重なる選手ボタン帯（縦詰めで並べ、入りきらない人数分はleftで折り返す） */
-.fs-player-rail{display:none;position:absolute;top:calc(10px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right));bottom:56px;left:55%;z-index:301;flex-direction:column;flex-wrap:wrap;justify-content:center;align-items:flex-end;align-content:flex-end;gap:6px 8px;pointer-events:auto;background:rgba(0,0,0,.01);touch-action:manipulation;}
+/* 全画面時：右側に重なる選手ボタン帯（縦詰めで並べ、入りきらない人数分はleftで折り返す）
+   帯自体はpointer-events:noneにし、ボタンの隙間・余白は動画側へタップを通す。
+   ボタン本体(.fs-player-btn)だけpointer-events:autoでタップを受け付ける。 */
+.fs-player-rail{display:none;position:absolute;top:calc(10px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right));bottom:56px;left:55%;z-index:301;flex-direction:column;flex-wrap:wrap;justify-content:center;align-items:flex-end;align-content:flex-end;gap:6px 8px;pointer-events:none;touch-action:manipulation;}
 .video-frame.fullscreen-mode .fs-player-rail{display:flex;}
-.fs-player-btn{display:flex;align-items:center;background:rgba(15,15,15,.5);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-family:'Noto Sans JP',sans-serif;padding:4px 8px;cursor:pointer;white-space:nowrap;touch-action:manipulation;}
+.fs-player-btn{display:flex;align-items:center;background:rgba(15,15,15,.5);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-family:'Noto Sans JP',sans-serif;padding:4px 8px;cursor:pointer;white-space:nowrap;touch-action:manipulation;pointer-events:auto;}
 .fs-player-btn .fs-key{font-size:11px;color:rgba(255,255,255,.55);min-width:13px;text-align:center;flex-shrink:0;}
 .fs-player-btn .fs-name{font-size:14px;margin-left:6px;}
 .fs-player-btn:active{background:rgba(79,195,247,.5);}
