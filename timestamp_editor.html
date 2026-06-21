@@ -1469,6 +1469,7 @@ async function burnInAndSave() {
   srcVideo.src = srcUrl;
   srcVideo.muted = false;
   srcVideo.playsInline = true;
+  let audioCtx = null; // Web Audio API経由で音声合成する際に使用。finallyで確実にcloseする
 
   try {
     await new Promise((resolve, reject) => {
@@ -1482,16 +1483,28 @@ async function burnInAndSave() {
     canvas.width = w; canvas.height = h;
     const ctx = canvas.getContext('2d');
 
-    // Canvasの映像ストリーム＋元動画の音声トラックを合成してMediaRecorderに渡す
+    // Canvasの映像ストリーム＋元動画の音声トラックを合成してMediaRecorderに渡す。
+    // 注意：iOS Safariは HTMLVideoElement.captureStream() に対応していないため、
+    // video要素から直接音声トラックを取り出すことができない。
+    // 代わりにWeb Audio APIで<video>をAudioContextに接続し、
+    // MediaStreamAudioDestinationNodeから音声トラックを取得する（iOS Safariでも動作する）。
     const canvasStream = canvas.captureStream(30);
     let mixedStream = canvasStream;
-    if (srcVideo.captureStream) {
-      try {
-        const audioOnly = srcVideo.captureStream().getAudioTracks();
-        if (audioOnly.length) {
-          mixedStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioOnly]);
-        }
-      } catch (e) { /* 音声トラック取得に失敗しても映像だけで続行 */ }
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') { await audioCtx.resume(); }
+      const sourceNode = audioCtx.createMediaElementSource(srcVideo);
+      const destNode = audioCtx.createMediaStreamDestination();
+      sourceNode.connect(destNode);
+      // 処理中にスピーカーからも音を出したい場合はaudioCtx.destinationにも繋ぐ。
+      // 出さない場合はvideo要素自体をmuted扱いにできないため、ここで明示的に繋がないことで実質ミュート再生にする。
+      const audioTracks = destNode.stream.getAudioTracks();
+      if (audioTracks.length) {
+        mixedStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
+      }
+    } catch (e) {
+      console.error('音声トラックの合成に失敗しました（映像のみで続行します）', e);
+      showToast('⚠ 音声の取得に失敗したため、映像のみで書き出します');
     }
 
     const mimeType = pickRecorderMimeType();
@@ -1569,6 +1582,7 @@ async function burnInAndSave() {
     alert('テロップ焼き込みに失敗しました: ' + e.message);
   } finally {
     URL.revokeObjectURL(srcUrl);
+    if (audioCtx && audioCtx.state !== 'closed') { try { audioCtx.close(); } catch (e) { /* noop */ } }
     [burnBtn, vttBtn, saveBtn, retakeBtn].forEach(b => { if (b) b.disabled = false; });
     progressWrap?.classList.remove('show');
   }
