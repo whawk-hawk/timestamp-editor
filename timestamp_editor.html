@@ -571,8 +571,18 @@ input:focus,select:focus{border-color:var(--accent);}
           <div class="telop-style-field">
             <label>表示位置</label>
             <select id="telopPosition" onchange="updateTelopPreview()">
-              <option value="bottom" selected>下</option>
-              <option value="top">上</option>
+              <option value="panel-bl" selected>左下（大会名・日付・対戦相手＋選手名）</option>
+              <option value="bottom">下中央（1行）</option>
+              <option value="top">上中央（1行）</option>
+            </select>
+          </div>
+          <div class="telop-style-field" id="telopBgField">
+            <label>背景の濃さ</label>
+            <select id="telopBgOpacity" onchange="updateTelopPreview()">
+              <option value="0.55" selected>標準</option>
+              <option value="0.3">薄め</option>
+              <option value="0.8">濃いめ</option>
+              <option value="0">背景なし</option>
             </select>
           </div>
           <div class="telop-preview-wrap">
@@ -1422,6 +1432,12 @@ async function saveRecordedVideo() {
 // 詳細モード／シンプルモードどちらでも、現在の録画ファイル名（matchSettings.file）に
 // 一致するシーンだけを対象にする。シーンの「表示区間」は前後切り出し秒数（pre/post）を
 // タイムスタンプの前後に適用した範囲とする（プレビューの切り出し範囲と同じ考え方）。
+//
+// 各cueは以下を持つ：
+//   text  : VTT書き出し用の1行ラベル
+//   line1 : テロップ焼き込み1行目（詳細モードのみ）「大会名　日付　VS 対戦相手」
+//   line2 : テロップ焼き込み2行目（詳細モードのみ）「選手名」
+//   simple: シンプルモード由来かどうか（シンプルモードはテロップ焼き込み非対応のため判定に使う）
 function getRecordingCaptionCues() {
   const baseName = (matchSettings.file || '').trim();
   const cues = [];
@@ -1431,7 +1447,7 @@ function getRecordingCaptionCues() {
       if (baseName && e.file !== baseName) return;
       const start = Math.max(0, e.time - SIMPLE_PRE_SEC);
       const end = e.time + SIMPLE_POST_SEC;
-      cues.push({ start, end, text: `SCENE ${i + 1}` });
+      cues.push({ start, end, text: `SCENE ${i + 1}`, simple: true });
     });
     return cues;
   }
@@ -1447,9 +1463,14 @@ function getRecordingCaptionCues() {
     const post = parseFloat(document.getElementById(`post_${id}`)?.value ?? POST_SEC);
     const event = document.getElementById(`event_${id}`)?.value || '';
     const opponent = document.getElementById(`opponent_${id}`)?.value || '';
+    const date = (document.getElementById(`date_${id}`)?.value || '').trim();
     const player = document.getElementById(`player_${id}`)?.value || '';
     const label = [player, event, opponent].filter(Boolean).join(' / ') || 'SCENE';
-    cues.push({ start: Math.max(0, t - pre), end: t + post, text: label });
+    // 1行目：大会名　日付　VS 対戦相手（いずれか欠けていれば自然に詰める）
+    const line1Parts = [event, date, opponent ? `VS ${opponent}` : ''].filter(Boolean);
+    const line1 = line1Parts.join('　');
+    const line2 = player || '';
+    cues.push({ start: Math.max(0, t - pre), end: t + post, text: label, line1, line2, simple: false });
   });
   return cues.sort((a, b) => a.start - b.start);
 }
@@ -1517,6 +1538,9 @@ async function burnInAndSave() {
   const cues = getRecordingCaptionCues();
   if (!cues.length) {
     if (!confirm('紐づくシーン記録が見つかりませんでした。テロップなしのまま書き出しますか？')) return;
+  } else if (recordMode === 'simple') {
+    // シンプルモードは選手名・大会名などのデータを持たないため、焼き込みテロップは表示されない仕様
+    if (!confirm('シンプルモードのシーン記録には選手名・大会名の情報がないため、テロップは表示されません。\nこのまま（テロップなしで）書き出しますか？')) return;
   }
 
   const burnBtn = document.getElementById('recBurnInBtn');
@@ -1590,8 +1614,9 @@ async function burnInAndSave() {
       ctx.drawImage(srcVideo, 0, 0, w, h);
       const t = srcVideo.currentTime;
       const activeCue = cues.find(c => t >= c.start && t <= c.end);
-      if (activeCue) {
-        drawTelopText(ctx, activeCue.text, w, h, fontSize, telopStyle);
+      // シンプルモード（選手名・大会名のデータを持たない記録）は、焼き込みテロップを表示しない
+      if (activeCue && !activeCue.simple) {
+        drawTelopCue(ctx, activeCue, w, h, fontSize, telopStyle);
       }
       if (!srcVideo.paused && !srcVideo.ended) {
         progressFill.style.width = `${Math.min(100, (t / srcVideo.duration) * 100)}%`;
@@ -1657,18 +1682,28 @@ function getTelopStyle() {
   const sizeRatio = parseFloat(document.getElementById('telopFontSize')?.value || '0.045');
   const color = document.getElementById('telopColor')?.value || '#ffffff';
   const strokeMode = document.getElementById('telopStroke')?.value || 'auto';
-  const position = document.getElementById('telopPosition')?.value || 'bottom';
+  const position = document.getElementById('telopPosition')?.value || 'panel-bl';
+  const bgOpacity = parseFloat(document.getElementById('telopBgOpacity')?.value ?? '0.55');
   // 縁取り「自動」は文字色が明るければ黒縁、暗ければ白縁にして視認性を確保する
   let strokeColor = null;
   if (strokeMode === 'auto') {
     const isDark = ['#000000'].includes(color);
     strokeColor = isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.85)';
   }
-  return { fontFamily, fontWeight, sizeRatio, color, strokeColor, position };
+  return { fontFamily, fontWeight, sizeRatio, color, strokeColor, position, bgOpacity };
 }
 
-// 指定スタイルでCanvas上にテロップ文字を1つ描画する（プレビュー・実焼き込み共通ロジック）
-function drawTelopText(ctx, text, w, h, fontSize, style) {
+// 指定スタイル・cueの内容に応じてCanvas上にテロップを描画する（プレビュー・実焼き込み共通ロジック）。
+// position が 'panel-bl' の場合：Pythonスクリプト（make_highlight.py）のテロップ画像と同じ構成
+//   1行目「大会名　日付　VS 対戦相手」／2行目「選手名」を、左下にグレー半透明の背景帯付きで表示する。
+// それ以外（'bottom'/'top'）の場合：1行のみを画面中央に表示する従来レイアウト。
+function drawTelopCue(ctx, cue, w, h, fontSize, style) {
+  if (style.position === 'panel-bl' && (cue.line1 || cue.line2)) {
+    drawTelopPanel(ctx, cue.line1, cue.line2, w, h, fontSize, style);
+    return;
+  }
+  const text = cue.text || cue.line1 || cue.line2 || '';
+  if (!text) return;
   ctx.font = `${style.fontWeight} ${fontSize}px ${style.fontFamily}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = style.position === 'top' ? 'top' : 'bottom';
@@ -1683,6 +1718,78 @@ function drawTelopText(ctx, text, w, h, fontSize, style) {
   ctx.fillText(text, x, y);
 }
 
+// 左下パネル形式のテロップを描画：グレー半透明の背景帯の上に、1行目（小さめ・情報行）／
+// 2行目（大きめ・選手名）を重ねる。帯の幅は最長の行のテキスト幅に合わせて自動算出する。
+function drawTelopPanel(ctx, line1, line2, w, h, fontSize, style) {
+  const padX = fontSize * 0.55;
+  const padY = fontSize * 0.4;
+  const line1Size = Math.round(fontSize * 0.62);
+  const line2Size = Math.round(fontSize * 1.0);
+  const lineGap = fontSize * 0.22;
+
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  // 行ごとの幅を測るため、先にフォントを設定してmeasureTextする
+  let line1Width = 0, line2Width = 0;
+  if (line1) { ctx.font = `${style.fontWeight} ${line1Size}px ${style.fontFamily}`; line1Width = ctx.measureText(line1).width; }
+  if (line2) { ctx.font = `${style.fontWeight} ${line2Size}px ${style.fontFamily}`; line2Width = ctx.measureText(line2).width; }
+  const contentWidth = Math.max(line1Width, line2Width);
+  const contentHeight = (line1 ? line1Size + lineGap : 0) + (line2 ? line2Size : 0);
+
+  const panelW = contentWidth + padX * 2;
+  const panelH = contentHeight + padY * 2;
+  const marginX = fontSize * 0.5;
+  const marginY = fontSize * 0.5;
+  const panelX = marginX;
+  const panelY = h - marginY - panelH;
+
+  // 背景帯（グレー半透明）
+  if (style.bgOpacity > 0) {
+    ctx.fillStyle = `rgba(60,60,60,${style.bgOpacity})`;
+    const r = Math.min(10, panelH * 0.18);
+    ctx.beginPath();
+    ctx.moveTo(panelX + r, panelY);
+    ctx.lineTo(panelX + panelW - r, panelY);
+    ctx.quadraticCurveTo(panelX + panelW, panelY, panelX + panelW, panelY + r);
+    ctx.lineTo(panelX + panelW, panelY + panelH - r);
+    ctx.quadraticCurveTo(panelX + panelW, panelY + panelH, panelX + panelW - r, panelY + panelH);
+    ctx.lineTo(panelX + r, panelY + panelH);
+    ctx.quadraticCurveTo(panelX, panelY + panelH, panelX, panelY + panelH - r);
+    ctx.lineTo(panelX, panelY + r);
+    ctx.quadraticCurveTo(panelX, panelY, panelX + r, panelY);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // 文字（縁取りは背景帯がある分、控えめに。背景なしのときだけ通常の縁取りを使う）
+  const textX = panelX + padX;
+  let textY = panelY + padY + line1Size;
+  if (line1) {
+    ctx.font = `${style.fontWeight} ${line1Size}px ${style.fontFamily}`;
+    if (style.strokeColor && style.bgOpacity === 0) {
+      ctx.lineWidth = Math.max(2, line1Size * 0.1);
+      ctx.strokeStyle = style.strokeColor;
+      ctx.strokeText(line1, textX, textY);
+    }
+    ctx.fillStyle = style.color;
+    ctx.fillText(line1, textX, textY);
+    textY += line2Size + lineGap;
+  } else {
+    textY += line2Size;
+  }
+  if (line2) {
+    ctx.font = `${style.fontWeight} ${line2Size}px ${style.fontFamily}`;
+    if (style.strokeColor && style.bgOpacity === 0) {
+      ctx.lineWidth = Math.max(2, line2Size * 0.1);
+      ctx.strokeStyle = style.strokeColor;
+      ctx.strokeText(line2, textX, textY);
+    }
+    ctx.fillStyle = style.color;
+    ctx.fillText(line2, textX, textY);
+  }
+}
+
 // テロップ設定パネルの開閉
 function toggleTelopStylePanel() {
   const panel = document.getElementById('telopStylePanel');
@@ -1695,6 +1802,11 @@ function toggleTelopStylePanel() {
 
 // プレビューCanvasに現在の設定を反映（動画は使わず、サンプルの背景＋サンプル文言で見た目だけ確認できるようにする）
 function updateTelopPreview() {
+  // 「左下パネル」レイアウトのときだけ背景の濃さ設定を表示する（他レイアウトでは使わないため）
+  const position = document.getElementById('telopPosition')?.value;
+  const bgField = document.getElementById('telopBgField');
+  if (bgField) bgField.style.display = (position === 'panel-bl') ? '' : 'none';
+
   const canvas = document.getElementById('telopPreviewCanvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -1709,8 +1821,16 @@ function updateTelopPreview() {
 
   const style = getTelopStyle();
   const fontSize = Math.max(12, Math.round(h * style.sizeRatio));
-  // 実際の録画では選手名や大会名が入るサンプル文言にしておく
-  drawTelopText(ctx, '田中 太郎 / 練習試合', w, h, fontSize, style);
+  // 実際の設定値（大会名・日付・対戦相手）があればそれを使い、なければサンプル文言で見た目を確認する
+  const event = matchSettings.event || '〇〇大会';
+  const date = matchSettings.date || todayStr();
+  const opponent = matchSettings.opponent || '△△高校';
+  const sampleCue = {
+    text: '田中 太郎 / 練習試合',
+    line1: [event, date, `VS ${opponent}`].filter(Boolean).join('　'),
+    line2: '田中 太郎',
+  };
+  drawTelopCue(ctx, sampleCue, w, h, fontSize, style);
 }
 
 // 撮り直す：録画結果を破棄し、idle状態（カメラ選択し直し）に戻す
