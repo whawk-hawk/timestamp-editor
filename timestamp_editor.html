@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>ハイライト タイムスタンプ入力</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Share+Tech+Mono&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@500;700;900&family=Kosugi+Maru&family=Share+Tech+Mono&display=swap');
 :root{
   --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;
   --accent:#4fc3f7;--green:#69f0ae;--red:#ff5252;
@@ -132,6 +132,17 @@ header p{font-size:11px;color:var(--text2);margin-top:3px;}
 .rec-burn-progress.show{display:flex;}
 .rec-burn-bar{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
 .rec-burn-bar-fill{height:100%;width:0%;background:var(--accent);transition:width .2s;}
+
+/* テロップ見た目設定パネル（折りたたみ） */
+.telop-style-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px;font-weight:700;color:var(--text2);padding:4px 0;user-select:none;}
+.telop-style-arrow{transition:transform .2s;font-size:10px;}
+.telop-style-arrow.open{transform:rotate(90deg);}
+.telop-style-panel{max-height:0;overflow:hidden;transition:max-height .25s ease;display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;}
+.telop-style-field{display:flex;flex-direction:column;gap:3px;}
+.telop-style-field label{font-size:10px;color:var(--text2);}
+.telop-style-field select{font-size:12px;padding:6px 8px;}
+.telop-preview-wrap{grid-column:1 / -1;display:flex;justify-content:center;padding-top:4px;}
+#telopPreviewCanvas{width:100%;max-width:320px;border-radius:8px;border:1px solid var(--border);background:#1a2233;}
 
 /* 動画プレーヤー見出し行：見出し/選択ボタン/全画面ボタン/説明文の縦積み。 */
 .player-head-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
@@ -510,6 +521,65 @@ input:focus,select:focus{border-color:var(--accent);}
       <!-- 録画停止後：字幕(VTT)書き出し／テロップ焼き込み保存（YouTube用・配布用それぞれに対応） -->
       <div class="rec-extra-save" id="recExtraSave">
         <p class="rec-extra-save-title">追加の保存オプション</p>
+
+        <!-- テロップ焼き込みの見た目設定（折りたたみ） -->
+        <div class="telop-style-toggle" id="telopStyleToggle" onclick="toggleTelopStylePanel()">
+          <span>🎨 テロップの見た目を設定</span>
+          <span class="telop-style-arrow" id="telopStyleArrow">▶</span>
+        </div>
+        <div class="telop-style-panel" id="telopStylePanel">
+          <div class="telop-style-field">
+            <label>書体</label>
+            <select id="telopFontFamily" onchange="updateTelopPreview()">
+              <option value="'Noto Sans JP', sans-serif">ゴシック体（Noto Sans JP）</option>
+              <option value="'Noto Serif JP', serif">明朝体（Noto Serif JP）</option>
+              <option value="'Kosugi Maru', sans-serif">丸ゴシック（Kosugi Maru）</option>
+            </select>
+          </div>
+          <div class="telop-style-field">
+            <label>太さ</label>
+            <select id="telopFontWeight" onchange="updateTelopPreview()">
+              <option value="900">極太</option>
+              <option value="700" selected>太字</option>
+              <option value="500">普通</option>
+            </select>
+          </div>
+          <div class="telop-style-field">
+            <label>サイズ</label>
+            <select id="telopFontSize" onchange="updateTelopPreview()">
+              <option value="0.032">小</option>
+              <option value="0.045" selected>中</option>
+              <option value="0.065">大</option>
+            </select>
+          </div>
+          <div class="telop-style-field">
+            <label>文字色</label>
+            <select id="telopColor" onchange="updateTelopPreview()">
+              <option value="#ffffff" selected>白</option>
+              <option value="#ffe900">黄</option>
+              <option value="#ff4444">赤</option>
+              <option value="#000000">黒</option>
+            </select>
+          </div>
+          <div class="telop-style-field">
+            <label>縁取り</label>
+            <select id="telopStroke" onchange="updateTelopPreview()">
+              <option value="auto" selected>自動（反対色）</option>
+              <option value="none">なし</option>
+            </select>
+          </div>
+          <div class="telop-style-field">
+            <label>表示位置</label>
+            <select id="telopPosition" onchange="updateTelopPreview()">
+              <option value="bottom" selected>下</option>
+              <option value="top">上</option>
+            </select>
+          </div>
+          <div class="telop-preview-wrap">
+            <canvas id="telopPreviewCanvas" width="320" height="180"></canvas>
+          </div>
+        </div>
+
         <div class="rec-extra-save-row">
           <button type="button" class="rec-extra-btn" id="recExportVttBtn" onclick="exportRecordingVtt()">📝 字幕(.vtt)を書き出す<br><span style="font-weight:400;font-size:10px;color:var(--text2)">YouTubeの字幕としてアップロード可</span></button>
           <button type="button" class="rec-extra-btn" id="recBurnInBtn" onclick="burnInAndSave()">🔥 テロップ焼き込んで保存<br><span style="font-weight:400;font-size:10px;color:var(--text2)">動画に直接表示・どこでも再生可</span></button>
@@ -1514,23 +1584,14 @@ async function burnInAndSave() {
       : new MediaRecorder(mixedStream);
     burnRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) outChunks.push(e.data); };
 
-    const fontSize = Math.max(20, Math.round(h * 0.045));
+    const telopStyle = getTelopStyle();
+    const fontSize = Math.max(16, Math.round(h * telopStyle.sizeRatio));
     function drawFrame() {
       ctx.drawImage(srcVideo, 0, 0, w, h);
       const t = srcVideo.currentTime;
       const activeCue = cues.find(c => t >= c.start && t <= c.end);
       if (activeCue) {
-        const text = activeCue.text;
-        ctx.font = `bold ${fontSize}px 'Noto Sans JP', sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        const x = w / 2;
-        const y = h - fontSize * 0.9;
-        ctx.lineWidth = Math.max(3, fontSize * 0.12);
-        ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-        ctx.strokeText(text, x, y);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(text, x, y);
+        drawTelopText(ctx, activeCue.text, w, h, fontSize, telopStyle);
       }
       if (!srcVideo.paused && !srcVideo.ended) {
         progressFill.style.width = `${Math.min(100, (t / srcVideo.duration) * 100)}%`;
@@ -1588,6 +1649,70 @@ async function burnInAndSave() {
   }
 }
 
+// ----- テロップ見た目設定（書体・太さ・サイズ・色・縁取り・位置） -----
+// UIの選択値を1つの設定オブジェクトにまとめて読み取る。プレビュー描画・実際の焼き込み描画の両方で共用する。
+function getTelopStyle() {
+  const fontFamily = document.getElementById('telopFontFamily')?.value || "'Noto Sans JP', sans-serif";
+  const fontWeight = document.getElementById('telopFontWeight')?.value || '700';
+  const sizeRatio = parseFloat(document.getElementById('telopFontSize')?.value || '0.045');
+  const color = document.getElementById('telopColor')?.value || '#ffffff';
+  const strokeMode = document.getElementById('telopStroke')?.value || 'auto';
+  const position = document.getElementById('telopPosition')?.value || 'bottom';
+  // 縁取り「自動」は文字色が明るければ黒縁、暗ければ白縁にして視認性を確保する
+  let strokeColor = null;
+  if (strokeMode === 'auto') {
+    const isDark = ['#000000'].includes(color);
+    strokeColor = isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.85)';
+  }
+  return { fontFamily, fontWeight, sizeRatio, color, strokeColor, position };
+}
+
+// 指定スタイルでCanvas上にテロップ文字を1つ描画する（プレビュー・実焼き込み共通ロジック）
+function drawTelopText(ctx, text, w, h, fontSize, style) {
+  ctx.font = `${style.fontWeight} ${fontSize}px ${style.fontFamily}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = style.position === 'top' ? 'top' : 'bottom';
+  const x = w / 2;
+  const y = style.position === 'top' ? fontSize * 0.3 : h - fontSize * 0.9;
+  if (style.strokeColor) {
+    ctx.lineWidth = Math.max(3, fontSize * 0.12);
+    ctx.strokeStyle = style.strokeColor;
+    ctx.strokeText(text, x, y);
+  }
+  ctx.fillStyle = style.color;
+  ctx.fillText(text, x, y);
+}
+
+// テロップ設定パネルの開閉
+function toggleTelopStylePanel() {
+  const panel = document.getElementById('telopStylePanel');
+  const arrow = document.getElementById('telopStyleArrow');
+  const isOpen = panel.style.maxHeight && panel.style.maxHeight !== '0px';
+  panel.style.maxHeight = isOpen ? '0' : panel.scrollHeight + 40 + 'px';
+  arrow.classList.toggle('open', !isOpen);
+  if (!isOpen) updateTelopPreview();
+}
+
+// プレビューCanvasに現在の設定を反映（動画は使わず、サンプルの背景＋サンプル文言で見た目だけ確認できるようにする）
+function updateTelopPreview() {
+  const canvas = document.getElementById('telopPreviewCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+
+  // サンプル背景（動画風のグラデーション。実際の映像ではなくあくまで文字の見え方確認用）
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, '#2a3a52');
+  grad.addColorStop(1, '#16202e');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  const style = getTelopStyle();
+  const fontSize = Math.max(12, Math.round(h * style.sizeRatio));
+  // 実際の録画では選手名や大会名が入るサンプル文言にしておく
+  drawTelopText(ctx, '田中 太郎 / 練習試合', w, h, fontSize, style);
+}
+
 // 撮り直す：録画結果を破棄し、idle状態（カメラ選択し直し）に戻す
 function retakeCameraRecording() {
   if (!confirm('現在の録画内容を破棄して撮り直しますか？（記録済みのシーン一覧は残ります）')) return;
@@ -1629,6 +1754,10 @@ function updateRecordButtonsVisibility() {
   document.getElementById('recSaveBtn')?.classList.toggle('show', isRecordMode && recordState === 'stopped');
   document.getElementById('recRetakeBtn')?.classList.toggle('show', isRecordMode && recordState === 'stopped');
   document.getElementById('recExtraSave')?.classList.toggle('show', isRecordMode && recordState === 'stopped');
+  if (isRecordMode && recordState === 'stopped') {
+    // Webフォントの読み込み完了を待ってからプレビューを描画（未読込だとfallbackフォントで一瞬表示されるため）
+    (document.fonts?.ready || Promise.resolve()).then(updateTelopPreview);
+  }
   if (isRecordMode && recordState === 'stopped') {
     document.getElementById('fullscreenToggleBtnRecord')?.classList.add('video-ready');
   }
