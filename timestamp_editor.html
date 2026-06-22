@@ -412,6 +412,11 @@ input:focus,select:focus{border-color:var(--accent);}
           <span class="slider"></span>
         </label>
       </div>
+      <div style="margin-top:10px">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px">よく使う言葉の候補（タップで削除）</div>
+        <div id="commentUsageList" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+        <div id="commentUsageEmpty" style="font-size:11px;color:var(--text2);display:none">まだ候補がありません</div>
+      </div>
     </div>
 
     <!-- 今日の試合設定 -->
@@ -712,6 +717,7 @@ function openSettings() {
   document.getElementById('match_date').value = matchSettings.date || todayStr();
   renderMatchSelects();
   updateCommentToggleUI();
+  renderCommentUsageList();
   document.getElementById('settingsModal').classList.add('show');
 }
 function closeSettings() {
@@ -917,6 +923,33 @@ function updateCommentToggleUI() {
   const miniLabel = document.getElementById('commentToggleMiniLabel');
   if (mini) mini.classList.toggle('on', commentEnabled);
   if (miniLabel) miniLabel.textContent = commentEnabled ? 'コメント ON' : 'コメント OFF';
+  renderCommentUsageList();
+}
+
+// 設定モーダル内の候補一覧を描画する
+function renderCommentUsageList() {
+  const list = document.getElementById('commentUsageList');
+  const empty = document.getElementById('commentUsageEmpty');
+  if (!list) return;
+  const sorted = Object.keys(commentUsage)
+    .sort((a, b) => commentUsage[b] - commentUsage[a]);
+  list.innerHTML = sorted.map(word =>
+    `<button type="button" style="
+      background:var(--surface2);border:1px solid var(--border);color:var(--text);
+      border-radius:14px;font-size:11px;font-family:'Noto Sans JP',sans-serif;
+      padding:4px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"
+      onclick="deleteCommentSuggestion('${escapeJs(word)}')"
+      title="タップで削除">
+      ${escapeHtml(word)}<span style="color:var(--text2);font-size:10px">✕</span>
+    </button>`
+  ).join('');
+  if (empty) empty.style.display = sorted.length ? 'none' : 'block';
+}
+
+function deleteCommentSuggestion(word) {
+  delete commentUsage[word];
+  saveStorage();
+  renderCommentUsageList();
 }
 
 // 使用頻度順（多い順、同数ならあとに使った方を優先）に候補を返す
@@ -939,46 +972,47 @@ function getSceneComment(id) {
 
 function setSceneComment(id, text) {
   sceneComments[id] = text;
-  const field = document.getElementById(`comment_field_${id}`);
-  if (field) field.value = text;
   updatePreview();
 }
 
-function appendSceneComment(id, text) {
+function appendSceneComment(id, text, ctx) {
   const cur = getSceneComment(id);
   const next = cur ? `${cur} ${text}` : text;
   setSceneComment(id, next);
   recordCommentUsage(text);
-}
-
-// 詳細モードの一覧側コメント欄（fields内のテキスト入力）から手動編集された場合の反映
-function onCommentFieldInput(id) {
-  const field = document.getElementById(`comment_field_${id}`);
-  sceneComments[id] = field ? field.value : '';
-  renderCommentBox(id);
-  updatePreview();
+  // 再描画：呼び出し元に応じて対象UIを選ぶ
+  if (ctx === 'fs') {
+    renderFsCommentPopup(id);
+  } else {
+    renderCommentBox(id);
+  }
 }
 
 // ----- 通常カード上のコメントUI（サマリー直下、常時組み込み） -----
+// context: 'card'（通常カード）または 'fs'（全画面ポップアップ）。
+// idのDOM重複を避けるため、全画面側は接頭辞 fs_ をつける。
 function commentBoxHtml(id, opts) {
   const compact = !!(opts && opts.compact);
+  const ctx = compact ? 'fs' : 'card';
+  const freeInputId = `${ctx}_commentFreeInput_${id}`;
+  const freeTextId  = `${ctx}_commentFreeText_${id}`;
   const current = getSceneComment(id);
   const suggestions = getCommentSuggestions();
   const suggestHtml = suggestions.length
     ? `<div class="comment-suggest-row">${suggestions.map(s =>
-        `<button type="button" class="comment-suggest-btn" onclick="appendSceneComment(${id},'${escapeJs(s)}');renderCommentBox(${id})">${escapeHtml(s)}</button>`
+        `<button type="button" class="comment-suggest-btn" onclick="appendSceneComment(${id},'${escapeJs(s)}','${ctx}');">${escapeHtml(s)}</button>`
       ).join('')}</div>`
     : '';
   return `
     ${compact ? '' : `<div class="comment-current" id="commentCurrent_${id}">${escapeHtml(current)}</div>`}
     ${suggestHtml}
     <div class="comment-free-row">
-      <button type="button" class="comment-free-toggle-btn" onclick="toggleFreeInput(${id})" aria-label="自由に入力">✏️</button>
-      ${current ? `<button type="button" class="comment-clear-btn" onclick="setSceneComment(${id},'');renderCommentBox(${id})">クリア</button>` : ''}
+      <button type="button" class="comment-free-toggle-btn" onclick="toggleFreeInput('${freeInputId}','${freeTextId}')" aria-label="自由に入力">✏️</button>
+      ${current ? `<button type="button" class="comment-clear-btn" onclick="setSceneComment(${id},'');${ctx==='fs'?`renderFsCommentPopup(${id})`:`renderCommentBox(${id})`}">クリア</button>` : ''}
     </div>
-    <div class="comment-free-input" id="commentFreeInput_${id}">
-      <input type="text" id="commentFreeText_${id}" placeholder="自由に入力…" onkeydown="if(event.key==='Enter')confirmFreeComment(${id})">
-      <button type="button" onclick="confirmFreeComment(${id})">追加</button>
+    <div class="comment-free-input" id="${freeInputId}">
+      <input type="text" id="${freeTextId}" placeholder="自由に入力…" onkeydown="if(event.key==='Enter')confirmFreeComment(${id},'${freeInputId}','${freeTextId}','${ctx}')">
+      <button type="button" onclick="confirmFreeComment(${id},'${freeInputId}','${freeTextId}','${ctx}')">追加</button>
     </div>`;
 }
 
@@ -995,31 +1029,22 @@ function openCommentBox(id) {
   box.style.display = 'block';
 }
 
-function toggleFreeInput(id) {
-  // 通常カード／全画面ポップアップどちらにも存在しうるので両方探す
-  const wrap = document.getElementById(`commentFreeInput_${id}`);
+function toggleFreeInput(freeInputId, freeTextId) {
+  const wrap = document.getElementById(freeInputId);
   if (!wrap) return;
   wrap.classList.toggle('show');
   if (wrap.classList.contains('show')) {
-    const input = document.getElementById(`commentFreeText_${id}`);
-    setTimeout(() => input?.focus(), 0);
+    setTimeout(() => document.getElementById(freeTextId)?.focus(), 0);
   }
 }
 
-function confirmFreeComment(id) {
-  const input = document.getElementById(`commentFreeText_${id}`);
+function confirmFreeComment(id, freeInputId, freeTextId, ctx) {
+  const input = document.getElementById(freeTextId);
   if (!input) return;
   const text = input.value.trim();
   if (!text) return;
-  appendSceneComment(id, text);
+  appendSceneComment(id, text, ctx);
   input.value = '';
-  // どちらのUIから呼ばれたかに応じて再描画
-  if (document.getElementById(`commentBox_${id}`)?.style.display !== 'none') {
-    renderCommentBox(id);
-  }
-  if (document.getElementById('fsCommentPopup')?.dataset.sceneId === String(id)) {
-    renderFsCommentPopup(id);
-  }
 }
 
 // ----- 全画面モード中のミニポップアップ（選手レールの近くに出す） -----
@@ -1973,7 +1998,6 @@ function addEntry(prefill) {
           <div class="sec-wrap"><input type="range" min="0" max="15" value="${POST_SEC}" id="post_${id}"
             oninput="document.getElementById('post_val_${id}').textContent=this.value;updatePreview()"></div></div>
         <div class="field"><label>選手名</label><div id="player_wrap_${id}">${makePlayerSelect(id)}</div></div>
-        <div class="field"><label>コメント</label><input type="text" id="comment_field_${id}" placeholder="（任意）" oninput="onCommentFieldInput(${id})"></div>
       </div>
     </div>`;
   document.getElementById('entries').appendChild(div);
@@ -1991,7 +2015,7 @@ function addEntry(prefill) {
     if(prefill.pre!==undefined){document.getElementById(`pre_${id}`).value=prefill.pre;document.getElementById(`pre_val_${id}`).textContent=prefill.pre;}
     if(prefill.post!==undefined){document.getElementById(`post_${id}`).value=prefill.post;document.getElementById(`post_val_${id}`).textContent=prefill.post;}
     const plSel=document.getElementById(`player_${id}`); if(plSel&&prefill.player) plSel.value=prefill.player;
-    if(prefill.comment){document.getElementById(`comment_field_${id}`).value=prefill.comment;sceneComments[id]=prefill.comment;}
+    if(prefill.comment){sceneComments[id]=prefill.comment;}
   }
   renumberEntries(); updateSummary(id); updatePreview();
   renderCommentBox(id);
