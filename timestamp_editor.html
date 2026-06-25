@@ -287,47 +287,7 @@ input:focus,select:focus{border-color:var(--accent);}
 .tag .del{cursor:pointer;color:var(--text2);font-size:13px;line-height:1;}
 .tag .del:hover{color:var(--red);}
 
-/* コメント機能：メイン画面の控えめなON/OFFトグル */
-.comment-toggle-mini{display:inline-flex;align-items:center;gap:5px;background:none;border:1px solid var(--border);color:var(--text2);border-radius:20px;font-size:10px;font-family:'Noto Sans JP',sans-serif;padding:3px 9px 3px 7px;cursor:pointer;white-space:nowrap;margin-left:auto;}
-.comment-toggle-mini:hover{border-color:var(--accent);}
-.comment-toggle-mini .dot{width:7px;height:7px;border-radius:50%;background:var(--text2);flex-shrink:0;}
-.comment-toggle-mini.on .dot{background:var(--green);}
-.comment-toggle-mini.on{color:var(--text);}
 
-/* 設定モーダル内のコメント機能トグル */
-.comment-setting-toggle{display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
-.comment-setting-toggle .label{font-size:12px;color:var(--text);}
-.comment-setting-toggle .sub{font-size:10px;color:var(--text2);margin-top:2px;}
-.switch{position:relative;width:38px;height:22px;flex-shrink:0;}
-.switch input{opacity:0;width:0;height:0;}
-.switch .slider{position:absolute;inset:0;background:var(--border);border-radius:22px;cursor:pointer;transition:background .15s;}
-.switch .slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .15s;}
-.switch input:checked + .slider{background:var(--green);}
-.switch input:checked + .slider::before{transform:translateX(16px);}
-
-/* コメント入力UI（SCENEカード上にタップ直後に開く） */
-.comment-box{margin-top:8px;padding:8px;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;}
-.comment-box .comment-current{font-size:12px;color:var(--text);min-height:16px;margin-bottom:6px;word-break:break-all;}
-.comment-box .comment-current:empty::before{content:'コメントなし';color:var(--text2);}
-.comment-suggest-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;}
-.comment-suggest-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:14px;font-size:11px;font-family:'Noto Sans JP',sans-serif;padding:5px 11px;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
-.comment-suggest-btn:hover,.comment-suggest-btn:active{border-color:var(--accent);color:var(--accent);}
-.comment-free-row{display:flex;gap:6px;}
-.comment-free-toggle-btn{background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;font-size:13px;padding:5px 9px;cursor:pointer;flex-shrink:0;}
-.comment-free-toggle-btn:hover{border-color:var(--accent);color:var(--accent);}
-.comment-free-input{display:none;flex:1;gap:6px;}
-.comment-free-input.show{display:flex;}
-.comment-free-input input{flex:1;font-size:12px;}
-.comment-free-input button{flex-shrink:0;background:var(--accent);color:#0a0f1a;border:none;border-radius:6px;font-size:11px;font-weight:700;padding:0 10px;cursor:pointer;}
-.comment-clear-btn{background:none;border:none;color:var(--text2);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;flex-shrink:0;}
-
-/* 全画面モード中のミニコメントポップアップ（直近でタップした選手のSCENE用） */
-.fs-comment-popup{display:none;position:absolute;z-index:303;background:rgba(10,12,18,.92);border:1px solid var(--accent);border-radius:10px;padding:8px;max-width:220px;}
-.fs-comment-popup.show{display:block;}
-.fs-comment-popup .comment-suggest-row{margin-bottom:4px;}
-.fs-comment-popup .comment-suggest-btn{font-size:11px;padding:5px 10px;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18);color:#fff;}
-.fs-comment-popup .comment-suggest-btn:hover,.fs-comment-popup .comment-suggest-btn:active{border-color:var(--accent);color:var(--accent);}
-.fs-comment-popup .comment-free-toggle-btn{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18);color:#fff;}
 
 /* 設定モーダル */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(5,8,15,.78);z-index:100;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;}
@@ -397,26 +357,6 @@ input:focus,select:focus{border-color:var(--accent);}
         <button type="button" class="record-mode-btn" id="recordModeBtnSimple" onclick="setRecordMode('simple')">シンプル</button>
       </div>
       <p class="record-mode-desc" id="recordModeDesc">選手ボタンをタップしてSCENEを記録します（選手名・大会名・対戦相手・前後秒数を記録）。</p>
-    </div>
-
-    <!-- コメント機能 -->
-    <div class="modal-section" id="commentSettingSection">
-      <h3>💬 コメント</h3>
-      <div class="comment-setting-toggle">
-        <div>
-          <div class="label">選手ボタンを押した後にコメントを入力</div>
-          <div class="sub">OFFにすると今まで通りタップだけで記録（試合に集中したい時に）</div>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="commentEnabledCheckbox" onchange="setCommentEnabled(this.checked)">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div style="margin-top:10px">
-        <div style="font-size:11px;color:var(--text2);margin-bottom:6px">よく使う言葉の候補（タップで削除）</div>
-        <div id="commentUsageList" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
-        <div id="commentUsageEmpty" style="font-size:11px;color:var(--text2);display:none">まだ候補がありません</div>
-      </div>
     </div>
 
     <!-- 今日の試合設定 -->
@@ -544,7 +484,6 @@ input:focus,select:focus{border-color:var(--accent);}
         <button type="button" class="fullscreen-close-btn" id="fullscreenCloseBtn" onclick="toggleFullscreenMode()">✕ 閉じる</button>
         <div class="fs-time-display" id="fsTimeDisplay">00:00</div>
         <div class="fs-player-rail" id="fsPlayerRail"></div>
-        <div class="fs-comment-popup" id="fsCommentPopup"></div>
         <button type="button" class="video-record-overlay" id="videoRecordOverlay" tabindex="-1" onclick="recordSimpleScene()" aria-label="シーンを記録">👍</button>
 
         <!-- アプリ内録画モード専用：録画開始/停止ボタン・REC表示・保存ボタン -->
@@ -599,7 +538,6 @@ input:focus,select:focus{border-color:var(--accent);}
     <div class="panel" id="playerGridPanel">
       <p class="section-label" style="margin-top:0;display:flex;align-items:center;gap:8px;">
         <span>選手を選択（タップでSCENE生成）<span style="display:none" id="keyHintNote"></span></span>
-        <button type="button" class="comment-toggle-mini" id="commentToggleMini" onclick="setCommentEnabled(!commentEnabled)"><span class="dot"></span><span id="commentToggleMiniLabel">コメント</span></button>
       </p>
       <div class="quick-grid" id="playerGrid"></div>
     </div>
@@ -638,12 +576,6 @@ let entryCount = 0;
 let recordMode = 'detail';   // 'detail' | 'simple'
 let simpleEntries = [];      // シンプルモード専用のSCENEデータ（{file, time}の配列）
 
-// コメント機能：commentEnabledはページを開くたび常にtrueから始まる（前回の状態は記憶しない）
-let commentEnabled = true;
-// 「よく使う言葉」の使用回数カウント（全選手・全SCENE共通、localStorageに保存して蓄積）
-let commentUsage = {};   // { "ナイスドリブル": 5, "抜けた": 2, ... }
-const COMMENT_SUGGEST_MAX = 8; // 候補として表示する最大件数
-
 // 今日の試合設定
 let matchSettings = { file: '', event: '', opponent: '', date: '' };
 
@@ -656,8 +588,7 @@ function loadStorage() {
   const p = localStorage.getItem('hl_roster_players'); rosterPlayers = p ? JSON.parse(p) : [];
   const m = localStorage.getItem('hl_match_settings'); if (m) matchSettings = JSON.parse(m);
   const rm = localStorage.getItem('hl_record_mode');  recordMode = (rm === 'simple') ? 'simple' : 'detail';
-  const cu = localStorage.getItem('hl_comment_usage'); commentUsage = cu ? JSON.parse(cu) : {};
-  // commentEnabledはあえて読み込まない（毎回ON＝true固定で起動する仕様）
+  const cu = localStorage.getItem('hl_comment_usage'); if (cu) localStorage.removeItem('hl_comment_usage'); // 旧データ削除
 }
 function saveStorage() {
   localStorage.setItem('hl_events', JSON.stringify(events));
@@ -665,7 +596,6 @@ function saveStorage() {
   localStorage.setItem('hl_roster_players', JSON.stringify(rosterPlayers));
   localStorage.setItem('hl_match_settings', JSON.stringify(matchSettings));
   localStorage.setItem('hl_record_mode', recordMode);
-  localStorage.setItem('hl_comment_usage', JSON.stringify(commentUsage));
 }
 
 // ===== 初期化 =====
@@ -679,7 +609,6 @@ window.onload = () => {
     openSettings();
   }
   renderPlayerGrid();
-  updateCommentToggleUI();
   initNumberKeyShortcuts();
 };
 
@@ -716,8 +645,6 @@ function openSettings() {
   document.getElementById('match_file').value = matchSettings.file || '';
   document.getElementById('match_date').value = matchSettings.date || todayStr();
   renderMatchSelects();
-  updateCommentToggleUI();
-  renderCommentUsageList();
   document.getElementById('settingsModal').classList.add('show');
 }
 function closeSettings() {
@@ -781,7 +708,6 @@ function applyRecordModeUI(mode, skipClear) {
   document.getElementById('opponentSection').style.display = mode === 'detail' ? '' : 'none';
   document.getElementById('match_event_field').style.display = mode === 'detail' ? '' : 'none';
   document.getElementById('match_opponent_field').style.display = mode === 'detail' ? '' : 'none';
-  document.getElementById('commentSettingSection').style.display = mode === 'detail' ? '' : 'none';
   updateRecordOverlayVisibility();
   document.getElementById('addSceneBtn').textContent = '＋ シーンを手動追加';
   document.getElementById('addSceneBtn').onclick = mode === 'detail' ? addEntry : addSimpleManualEntry;
@@ -904,191 +830,6 @@ function renderPlayerGrid() {
   }
 }
 
-// ===== コメント機能 =====
-// SCENEごとのコメント本文（id -> 文字列）。1つのテキスト欄に集約し、
-// 候補タップも自由文も同じ文字列に追記していく方式（案1）。
-const sceneComments = {};
-
-function setCommentEnabled(enabled) {
-  commentEnabled = !!enabled;
-  updateCommentToggleUI();
-  // 開いていたポップアップ・入力欄は混乱を避けるため閉じる
-  closeFsCommentPopup();
-}
-
-function updateCommentToggleUI() {
-  const checkbox = document.getElementById('commentEnabledCheckbox');
-  if (checkbox) checkbox.checked = commentEnabled;
-  const mini = document.getElementById('commentToggleMini');
-  const miniLabel = document.getElementById('commentToggleMiniLabel');
-  if (mini) mini.classList.toggle('on', commentEnabled);
-  if (miniLabel) miniLabel.textContent = commentEnabled ? 'コメント ON' : 'コメント OFF';
-  renderCommentUsageList();
-}
-
-// 設定モーダル内の候補一覧を描画する
-function renderCommentUsageList() {
-  const list = document.getElementById('commentUsageList');
-  const empty = document.getElementById('commentUsageEmpty');
-  if (!list) return;
-  const sorted = Object.keys(commentUsage)
-    .sort((a, b) => commentUsage[b] - commentUsage[a]);
-  list.innerHTML = sorted.map(word =>
-    `<button type="button" style="
-      background:var(--surface2);border:1px solid var(--border);color:var(--text);
-      border-radius:14px;font-size:11px;font-family:'Noto Sans JP',sans-serif;
-      padding:4px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"
-      onclick="deleteCommentSuggestion('${escapeJs(word)}')"
-      title="タップで削除">
-      ${escapeHtml(word)}<span style="color:var(--text2);font-size:10px">✕</span>
-    </button>`
-  ).join('');
-  if (empty) empty.style.display = sorted.length ? 'none' : 'block';
-}
-
-function deleteCommentSuggestion(word) {
-  delete commentUsage[word];
-  saveStorage();
-  renderCommentUsageList();
-}
-
-// 使用頻度順（多い順、同数ならあとに使った方を優先）に候補を返す
-function getCommentSuggestions() {
-  return Object.keys(commentUsage)
-    .sort((a, b) => commentUsage[b] - commentUsage[a])
-    .slice(0, COMMENT_SUGGEST_MAX);
-}
-
-function recordCommentUsage(text) {
-  const t = text.trim();
-  if (!t) return;
-  commentUsage[t] = (commentUsage[t] || 0) + 1;
-  saveStorage();
-}
-
-function getSceneComment(id) {
-  return sceneComments[id] || '';
-}
-
-function setSceneComment(id, text) {
-  sceneComments[id] = text;
-  updatePreview();
-}
-
-function appendSceneComment(id, text, ctx) {
-  const cur = getSceneComment(id);
-  const next = cur ? `${cur} ${text}` : text;
-  setSceneComment(id, next);
-  recordCommentUsage(text);
-  // 再描画：呼び出し元に応じて対象UIを選ぶ
-  if (ctx === 'fs') {
-    renderFsCommentPopup(id);
-  } else {
-    renderCommentBox(id);
-  }
-}
-
-// ----- 通常カード上のコメントUI（サマリー直下、常時組み込み） -----
-// context: 'card'（通常カード）または 'fs'（全画面ポップアップ）。
-// idのDOM重複を避けるため、全画面側は接頭辞 fs_ をつける。
-function commentBoxHtml(id, opts) {
-  const compact = !!(opts && opts.compact);
-  const ctx = compact ? 'fs' : 'card';
-  const freeInputId = `${ctx}_commentFreeInput_${id}`;
-  const freeTextId  = `${ctx}_commentFreeText_${id}`;
-  const current = getSceneComment(id);
-  const suggestions = getCommentSuggestions();
-  const suggestHtml = suggestions.length
-    ? `<div class="comment-suggest-row">${suggestions.map(s =>
-        `<button type="button" class="comment-suggest-btn" onclick="appendSceneComment(${id},'${escapeJs(s)}','${ctx}');">${escapeHtml(s)}</button>`
-      ).join('')}</div>`
-    : '';
-  return `
-    ${compact ? '' : `<div class="comment-current" id="commentCurrent_${id}">${escapeHtml(current)}</div>`}
-    ${suggestHtml}
-    <div class="comment-free-row">
-      <button type="button" class="comment-free-toggle-btn" onclick="toggleFreeInput('${freeInputId}','${freeTextId}')" aria-label="自由に入力">✏️</button>
-      ${current ? `<button type="button" class="comment-clear-btn" onclick="setSceneComment(${id},'');${ctx==='fs'?`renderFsCommentPopup(${id})`:`renderCommentBox(${id})`}">クリア</button>` : ''}
-    </div>
-    <div class="comment-free-input" id="${freeInputId}">
-      <input type="text" id="${freeTextId}" placeholder="自由に入力…" onkeydown="if(event.key==='Enter')confirmFreeComment(${id},'${freeInputId}','${freeTextId}','${ctx}')">
-      <button type="button" onclick="confirmFreeComment(${id},'${freeInputId}','${freeTextId}','${ctx}')">追加</button>
-    </div>`;
-}
-
-function renderCommentBox(id) {
-  const box = document.getElementById(`commentBox_${id}`);
-  if (!box) return;
-  box.innerHTML = commentBoxHtml(id, { compact: false });
-}
-
-function openCommentBox(id) {
-  const box = document.getElementById(`commentBox_${id}`);
-  if (!box) return;
-  renderCommentBox(id);
-  box.style.display = 'block';
-}
-
-function toggleFreeInput(freeInputId, freeTextId) {
-  const wrap = document.getElementById(freeInputId);
-  if (!wrap) return;
-  wrap.classList.toggle('show');
-  // 全画面中はソフトキーボードを出すと--vvhが変わって画面が寄るため、focus()を呼ばない
-  if (wrap.classList.contains('show') && !fullscreenActive) {
-    setTimeout(() => document.getElementById(freeTextId)?.focus(), 0);
-  }
-}
-
-function confirmFreeComment(id, freeInputId, freeTextId, ctx) {
-  const input = document.getElementById(freeTextId);
-  if (!input) return;
-  const text = input.value.trim();
-  if (!text) return;
-  appendSceneComment(id, text, ctx);
-  input.value = '';
-}
-
-// ----- 全画面モード中のミニポップアップ（選手レールの近くに出す） -----
-function openFsCommentPopup(id, btnEl) {
-  const popup = document.getElementById('fsCommentPopup');
-  const frame = document.getElementById('videoFrame');
-  if (!popup || !frame) return;
-  popup.dataset.sceneId = String(id);
-  renderFsCommentPopup(id);
-
-  // ボタン位置の左側に出す（fs-player-rail同様、画面右側のボタン群を避ける）
-  if (btnEl) {
-    const frameRect = frame.getBoundingClientRect();
-    const btnRect = btnEl.getBoundingClientRect();
-    let top = btnRect.top - frameRect.top;
-    let left = btnRect.left - frameRect.left - 232; // ポップアップ幅(220)+余白
-    if (left < 8) left = 8;
-    const maxTop = frame.clientHeight - 140;
-    if (top > maxTop) top = maxTop;
-    if (top < 8) top = 8;
-    popup.style.top = `${top}px`;
-    popup.style.left = `${left}px`;
-  }
-  popup.classList.add('show');
-}
-
-function renderFsCommentPopup(id) {
-  const popup = document.getElementById('fsCommentPopup');
-  if (!popup) return;
-  popup.innerHTML = commentBoxHtml(id, { compact: true })
-    + `<button type="button" class="comment-clear-btn" style="margin-top:4px" onclick="closeFsCommentPopup()">閉じる</button>`;
-}
-
-function closeFsCommentPopup() {
-  const popup = document.getElementById('fsCommentPopup');
-  if (!popup) return;
-  // 自由入力欄（✏️）が開いていて、かつフォーカス中の場合は閉じない
-  const freeInput = popup.querySelector('.comment-free-input.show input');
-  if (freeInput && document.activeElement === freeInput) return;
-  popup.classList.remove('show');
-  popup.removeAttribute('data-scene-id');
-  clearTimeout(popup._autoCloseTimer);
-}
 
 // JS文字列リテラル用エスケープ（onclick属性内に安全に埋め込むため）
 function escapeJs(s) {
@@ -1132,13 +873,6 @@ function tapPlayer(player, btnEl) {
     player:   player,
   });
 
-  if (commentEnabled) {
-    if (isFullscreen) {
-      openFsCommentPopup(id, btnEl);
-    } else {
-      openCommentBox(id);
-    }
-  }
 }
 
 // 全画面モード中、選手ボタンの近くに「いいね」絵文字をふわっと表示して自動的に消す演出。
@@ -1672,36 +1406,15 @@ function updateStopwatchDisplay() {
 // 100vh基準のレイアウトだとボタン操作のたびに画面が揺れる。
 // window.visualViewport の実測高さを --vvh としてCSS変数に反映し続けることで、
 // 全画面モード中のレイアウトをアドレスバーの増減に追従させて安定させる。
-// _vvhLocked=true の間は --vvh を更新しない（全画面中のキーボード出現時に使用）
-let _vvhLocked = false;
-function updateViewportHeightVar(force) {
-  if (_vvhLocked && !force) return;
+function updateViewportHeightVar() {
   const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
   document.documentElement.style.setProperty('--vvh', `${h}px`);
 }
-window.addEventListener('resize', () => {
-  if (fullscreenActive) return;
-  updateViewportHeightVar();
-});
+window.addEventListener('resize', updateViewportHeightVar);
 if (window.visualViewport) {
-  let _lastVvw = window.visualViewport.width;
-  window.visualViewport.addEventListener('resize', () => {
-    const newW = window.visualViewport.width;
-    const widthChanged = Math.abs(newW - _lastVvw) > 1;
-    _lastVvw = newW;
-    if (fullscreenActive && !widthChanged) {
-      // 幅が変わっていない＝キーボード起因。全画面中はロックして寄りを防ぐ
-      _vvhLocked = true;
-      return;
-    }
-    // 幅が変わった（画面回転）or 全画面外 → ロック解除して更新
-    _vvhLocked = false;
-    updateViewportHeightVar();
-  });
-  window.visualViewport.addEventListener('scroll', () => {
-    if (fullscreenActive) return;
-    updateViewportHeightVar();
-  });
+  window.visualViewport.addEventListener('resize', updateViewportHeightVar);
+  // iOSはスクロールでもvisualViewportが変化するため、全画面中は揺れ防止のためscrollも監視
+  window.visualViewport.addEventListener('scroll', updateViewportHeightVar);
 }
 updateViewportHeightVar();
 
@@ -1711,7 +1424,6 @@ let videoFrameOriginalNextSibling = null;
 
 function toggleFullscreenMode() {
   fullscreenActive = !fullscreenActive;
-  closeFsCommentPopup();
   const frame = document.getElementById('videoFrame');
   if (frame) {
     frame.classList.toggle('fullscreen-mode', fullscreenActive);
@@ -1730,7 +1442,6 @@ function toggleFullscreenMode() {
     }
   }
   if (fullscreenActive) updateViewportHeightVar();
-  else { _vvhLocked = false; updateViewportHeightVar(); } // 全画面解除時はロック解除して高さを再計算
   document.body.classList.toggle('fullscreen-active', fullscreenActive);
   document.querySelectorAll('#fullscreenToggleBtn, #fullscreenToggleBtnRecord').forEach(toggleBtn => {
     if (toggleBtn) toggleBtn.textContent = fullscreenActive ? '⛶ 戻る' : '⛶ 全画面';
@@ -1997,7 +1708,6 @@ function addEntry(prefill) {
         <span class="toggle-arrow" id="arrow_${id}">▶</span>
       </div>
     </div>
-    <div class="comment-box" id="commentBox_${id}" style="display:none" onclick="event.stopPropagation()"></div>
     <div class="entry-detail collapsed" id="detail_${id}">
       <div class="fields">
         <div class="field"><label>ファイル名</label>
@@ -2038,10 +1748,8 @@ function addEntry(prefill) {
     if(prefill.pre!==undefined){document.getElementById(`pre_${id}`).value=prefill.pre;document.getElementById(`pre_val_${id}`).textContent=prefill.pre;}
     if(prefill.post!==undefined){document.getElementById(`post_${id}`).value=prefill.post;document.getElementById(`post_val_${id}`).textContent=prefill.post;}
     const plSel=document.getElementById(`player_${id}`); if(plSel&&prefill.player) plSel.value=prefill.player;
-    if(prefill.comment){sceneComments[id]=prefill.comment;}
   }
   renumberEntries(); updateSummary(id); updatePreview();
-  renderCommentBox(id);
   return id;
 }
 
@@ -2080,7 +1788,6 @@ function updateSummary(id) {
 
 function removeEntry(id) {
   document.getElementById(`entry_${id}`)?.remove();
-  delete sceneComments[id];
   renumberEntries(); updatePreview();
 }
 
@@ -2175,7 +1882,6 @@ function getDetailRows() {
     const opponent=document.getElementById(`opponent_${id}`)?.value||'';
     const date=(document.getElementById(`date_${id}`)?.value||'').trim();
     const player=document.getElementById(`player_${id}`)?.value||'';
-    const comment=getSceneComment(id);
     const fields = [
       `file=${encodeKV(file + '.mp4')}`,
       `ts=${encodeKV(ts)}`,
@@ -2186,7 +1892,6 @@ function getDetailRows() {
       `date=${encodeKV(date)}`,
       `player=${encodeKV(player)}`,
     ];
-    if (comment) fields.push(`comment=${encodeKV(comment)}`);
     rows.push(fields.join(', '));
   });
   return rows;
@@ -2198,7 +1903,7 @@ function getRows() { return getDetailRows(); }
 function updatePreview() {
   if (recordMode === 'simple') { updateSimplePreview(); return; }
   const rows=getDetailRows();
-  const header='# 書式: file=ファイル名, ts=タイムスタンプ, pre=前(秒), post=後(秒), event=大会名, opponent=対戦相手, date=日付, player=選手名, comment=コメント（任意）';
+  const header='# 書式: file=ファイル名, ts=タイムスタンプ, pre=前(秒), post=後(秒), event=大会名, opponent=対戦相手, date=日付, player=選手名';
   document.getElementById('preview').textContent=[header,...rows].join('\n');
   updateTotal();
   document.querySelectorAll('.entry-card').forEach(card=>{
@@ -2227,7 +1932,7 @@ async function exportTxt() {
   if (recordMode === 'simple') { await exportSimpleTxt(); return; }
   const rows=getDetailRows();
   if(!rows.length){alert('シーンがありません');return;}
-  const header='# 書式: file=ファイル名, ts=タイムスタンプ, pre=前(秒), post=後(秒), event=大会名, opponent=対戦相手, date=日付, player=選手名, comment=コメント（任意）';
+  const header='# 書式: file=ファイル名, ts=タイムスタンプ, pre=前(秒), post=後(秒), event=大会名, opponent=対戦相手, date=日付, player=選手名';
   const text=[header,...rows].join('\n');
 
   // Chrome/Edge: 保存先・ファイル名を毎回選択できるFile System Access APIを優先使用
@@ -2293,23 +1998,21 @@ function importTxt(event) {
     const data=lines.filter(l=>l.trim()&&!l.trim().startsWith('#'));
     if(!data.length){alert('有効なデータが見つかりませんでした');return;}
     document.getElementById('entries').innerHTML='';
-    Object.keys(sceneComments).forEach(k => delete sceneComments[k]);
     entryCount=0; extraPlayers=[];
     let imported = 0;
     data.forEach(line=>{
       const obj = parseKVLine(line);
-      if (!obj.file || !obj.ts) return; // key=value形式として読めない行はスキップ
+      if (!obj.file || !obj.ts) return;
       const filename = obj.file, ts = obj.ts;
       const pre = obj.pre, post = obj.post;
       const ev = obj.event || '', opponent = obj.opponent || '';
       const date = obj.date || '', player = obj.player || '';
-      const comment = obj.comment || '';
       const fileBase=filename.replace(/\.mp4$/i,'');
       const [min,sec]=ts.split(':').map(s=>parseInt(s,10)||0);
       if(ev&&!events.includes(ev))events.push(ev);
       if(opponent&&!opponents.includes(opponent))opponents.push(opponent);
       if(player&&!allPlayers().includes(player)&&!extraPlayers.includes(player))extraPlayers.push(player);
-      addEntry({file:fileBase,event:ev,opponent,date,min,sec,pre:parseInt(pre,10)||PRE_SEC,post:parseInt(post,10)||POST_SEC,player,comment});
+      addEntry({file:fileBase,event:ev,opponent,date,min,sec,pre:parseInt(pre,10)||PRE_SEC,post:parseInt(post,10)||POST_SEC,player});
       imported++;
     });
     if (!imported) { alert('有効なデータが見つかりませんでした'); return; }
@@ -2344,7 +2047,6 @@ function importSimpleTxt(event) {
 function clearAll() {
   if(!confirm('全てクリアしますか？（選択中の動画も外れます）'))return;
   document.getElementById('entries').innerHTML = '';
-  closeFsCommentPopup();
   unloadSelectedVideo();
   if (recordMode === 'simple') {
     simpleEntries = [];
@@ -2352,7 +2054,6 @@ function clearAll() {
     return;
   }
   entryCount=0; extraPlayers=[];
-  Object.keys(sceneComments).forEach(k => delete sceneComments[k]);
   updatePreview();
 }
 
