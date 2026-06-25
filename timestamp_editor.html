@@ -1033,7 +1033,8 @@ function toggleFreeInput(freeInputId, freeTextId) {
   const wrap = document.getElementById(freeInputId);
   if (!wrap) return;
   wrap.classList.toggle('show');
-  if (wrap.classList.contains('show')) {
+  // 全画面中はソフトキーボードを出すと--vvhが変わって画面が寄るため、focus()を呼ばない
+  if (wrap.classList.contains('show') && !fullscreenActive) {
     setTimeout(() => document.getElementById(freeTextId)?.focus(), 0);
   }
 }
@@ -1069,9 +1070,6 @@ function openFsCommentPopup(id, btnEl) {
     popup.style.left = `${left}px`;
   }
   popup.classList.add('show');
-
-  clearTimeout(popup._autoCloseTimer);
-  popup._autoCloseTimer = setTimeout(() => closeFsCommentPopup(), 6000);
 }
 
 function renderFsCommentPopup(id) {
@@ -1084,6 +1082,9 @@ function renderFsCommentPopup(id) {
 function closeFsCommentPopup() {
   const popup = document.getElementById('fsCommentPopup');
   if (!popup) return;
+  // 自由入力欄（✏️）が開いていて、かつフォーカス中の場合は閉じない
+  const freeInput = popup.querySelector('.comment-free-input.show input');
+  if (freeInput && document.activeElement === freeInput) return;
   popup.classList.remove('show');
   popup.removeAttribute('data-scene-id');
   clearTimeout(popup._autoCloseTimer);
@@ -1677,7 +1678,17 @@ function updateViewportHeightVar() {
 }
 window.addEventListener('resize', updateViewportHeightVar);
 if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', updateViewportHeightVar);
+  let _lastVvw = window.visualViewport.width;
+  window.visualViewport.addEventListener('resize', () => {
+    const newW = window.visualViewport.width;
+    const widthChanged = Math.abs(newW - _lastVvw) > 1;
+    _lastVvw = newW;
+    // 全画面中かつ幅が変わっていない場合＝ソフトキーボードの出入りによる高さ変化。
+    // --vvhを更新すると全画面レイアウトが寄るため、この場合はスキップする。
+    // 幅が変わった（画面回転）場合は通常通り更新する。
+    if (fullscreenActive && !widthChanged) return;
+    updateViewportHeightVar();
+  });
   // iOSはスクロールでもvisualViewportが変化するため、全画面中は揺れ防止のためscrollも監視
   window.visualViewport.addEventListener('scroll', updateViewportHeightVar);
 }
