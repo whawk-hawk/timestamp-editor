@@ -1672,25 +1672,36 @@ function updateStopwatchDisplay() {
 // 100vh基準のレイアウトだとボタン操作のたびに画面が揺れる。
 // window.visualViewport の実測高さを --vvh としてCSS変数に反映し続けることで、
 // 全画面モード中のレイアウトをアドレスバーの増減に追従させて安定させる。
-function updateViewportHeightVar() {
+// _vvhLocked=true の間は --vvh を更新しない（全画面中のキーボード出現時に使用）
+let _vvhLocked = false;
+function updateViewportHeightVar(force) {
+  if (_vvhLocked && !force) return;
   const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
   document.documentElement.style.setProperty('--vvh', `${h}px`);
 }
-window.addEventListener('resize', updateViewportHeightVar);
+window.addEventListener('resize', () => {
+  if (fullscreenActive) return;
+  updateViewportHeightVar();
+});
 if (window.visualViewport) {
   let _lastVvw = window.visualViewport.width;
   window.visualViewport.addEventListener('resize', () => {
     const newW = window.visualViewport.width;
     const widthChanged = Math.abs(newW - _lastVvw) > 1;
     _lastVvw = newW;
-    // 全画面中かつ幅が変わっていない場合＝ソフトキーボードの出入りによる高さ変化。
-    // --vvhを更新すると全画面レイアウトが寄るため、この場合はスキップする。
-    // 幅が変わった（画面回転）場合は通常通り更新する。
-    if (fullscreenActive && !widthChanged) return;
+    if (fullscreenActive && !widthChanged) {
+      // 幅が変わっていない＝キーボード起因。全画面中はロックして寄りを防ぐ
+      _vvhLocked = true;
+      return;
+    }
+    // 幅が変わった（画面回転）or 全画面外 → ロック解除して更新
+    _vvhLocked = false;
     updateViewportHeightVar();
   });
-  // iOSはスクロールでもvisualViewportが変化するため、全画面中は揺れ防止のためscrollも監視
-  window.visualViewport.addEventListener('scroll', updateViewportHeightVar);
+  window.visualViewport.addEventListener('scroll', () => {
+    if (fullscreenActive) return;
+    updateViewportHeightVar();
+  });
 }
 updateViewportHeightVar();
 
@@ -1719,6 +1730,7 @@ function toggleFullscreenMode() {
     }
   }
   if (fullscreenActive) updateViewportHeightVar();
+  else { _vvhLocked = false; updateViewportHeightVar(); } // 全画面解除時はロック解除して高さを再計算
   document.body.classList.toggle('fullscreen-active', fullscreenActive);
   document.querySelectorAll('#fullscreenToggleBtn, #fullscreenToggleBtnRecord').forEach(toggleBtn => {
     if (toggleBtn) toggleBtn.textContent = fullscreenActive ? '⛶ 戻る' : '⛶ 全画面';
