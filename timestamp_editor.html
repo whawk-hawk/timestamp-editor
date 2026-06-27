@@ -244,6 +244,11 @@ body.fullscreen-active{overflow:hidden;}
 /* SCENEカード */
 .entry-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;transition:border-color .15s;}
 .entry-card:hover{border-color:var(--accent);}
+/* ファイルグループ別の色分け（2色交互・落ち着いたトーン） */
+.entry-card.file-color-0{border-left:3px solid #4fc3f7;background:linear-gradient(90deg,rgba(79,195,247,.06) 0%,var(--surface) 60%);}
+.entry-card.file-color-1{border-left:3px solid #80cbc4;background:linear-gradient(90deg,rgba(128,203,196,.06) 0%,var(--surface) 60%);}
+.entry-card.file-color-0:hover{border-color:#4fc3f7;}
+.entry-card.file-color-1:hover{border-color:#80cbc4;}
 .card-summary{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;}
 .entry-num{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em;white-space:nowrap;}
 .entry-summary-info{flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -332,11 +337,12 @@ input:focus,select:focus{border-color:var(--accent);}
       <label class="header-btn secondary" for="fileInput" style="cursor:pointer">📤 読み込む</label>
       <input type="file" id="fileInput" accept=".txt" onchange="importTxt(event)" style="display:none">
       <button class="header-btn primary" onclick="exportTxt()">📥 出力</button>
+      <button class="header-btn secondary" onclick="exportSplitTxt()" title="SCENEをファイルごとに分けて複数のtxtに保存">✂️ 分割保存</button>
     </div>
     <div class="header-center">
       <h1>⚽ ハイライト タイムスタンプ入力</h1>
       <p>選手ボタンをタップするとその瞬間のタイムスタンプでシーンが自動生成されます</p>
-      <button class="settings-btn" onclick="openSettings()">⚙ 設定（選手名・大会名・対戦相手・今日の試合）</button>
+      <button class="settings-btn" onclick="openSettings()">⚙ 設定（選手名・日付）</button>
     </div>
     <div class="header-side right">
       <button class="header-btn danger" onclick="clearAll()">All Clear</button>
@@ -359,32 +365,25 @@ input:focus,select:focus{border-color:var(--accent);}
       <p class="record-mode-desc" id="recordModeDesc">選手ボタンをタップしてSCENEを記録します（選手名・大会名・対戦相手・前後秒数を記録）。</p>
     </div>
 
-    <!-- 今日の試合設定 -->
+    <!-- 今日の試合設定（動画ファイル名から自動読み取り） -->
     <div class="modal-section">
       <h3>🏟 今日の試合設定</h3>
-      <p style="font-size:11px;color:var(--text2);margin-bottom:8px">ここで設定した内容が、タイムスタンプ記録時に自動でSCENEに入ります。</p>
+      <p style="font-size:11px;color:var(--text2);margin-bottom:8px">大会名・対戦相手は動画ファイル名（大会名_対戦相手_01.mp4）から自動で読み取られます。</p>
       <div class="match-setting">
-        <div class="fields">
-          <div class="field">
-            <label>ファイル名</label>
-            <div class="filename-wrap">
-              <input type="text" id="match_file" placeholder="game1">
-              <span class="filename-ext">.mp4</span>
-            </div>
-          </div>
+        <div class="fields" style="grid-template-columns:1fr 1fr;">
           <div class="field" id="match_date_field">
             <label>日付</label>
             <input type="date" id="match_date">
           </div>
-          <div class="field" id="match_event_field">
-            <label>大会名</label>
-            <div id="match_event_wrap"></div>
-          </div>
-          <div class="field" id="match_opponent_field">
-            <label>対戦相手</label>
-            <div id="match_opponent_wrap"></div>
+          <div class="field">
+            <label>読み取り結果</label>
+            <div id="match_parsed_info" style="font-size:12px;color:var(--accent);padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;min-height:34px;">—</div>
           </div>
         </div>
+        <!-- JSから参照するため非表示で保持 -->
+        <input type="hidden" id="match_file">
+        <div style="display:none" id="match_event_wrap"></div>
+        <div style="display:none" id="match_opponent_wrap"></div>
       </div>
     </div>
 
@@ -398,23 +397,13 @@ input:focus,select:focus{border-color:var(--accent);}
       <div class="tags" id="rosterTags"></div>
     </div>
 
-    <!-- 大会名 -->
-    <div class="modal-section" id="eventSection">
-      <h3>🏆 大会名</h3>
-      <div class="tag-input-wrap">
-        <input type="text" id="eventInput" placeholder="例: World CUP 2026" onkeydown="if(event.key==='Enter')addTag('event')">
-        <button class="btn-add" onclick="addTag('event')">追加</button>
-      </div>
+    <!-- 大会名タグ（非表示・JS内部用） -->
+    <div style="display:none" id="eventSection">
       <div class="tags" id="eventTags"></div>
     </div>
 
-    <!-- 対戦相手 -->
-    <div class="modal-section" id="opponentSection">
-      <h3>⚔️ 対戦相手</h3>
-      <div class="tag-input-wrap">
-        <input type="text" id="opponentInput" placeholder="例: FC Barcelona" onkeydown="if(event.key==='Enter')addTag('opponent')">
-        <button class="btn-add" onclick="addTag('opponent')">追加</button>
-      </div>
+    <!-- 対戦相手タグ（非表示・JS内部用） -->
+    <div style="display:none" id="opponentSection">
       <div class="tags" id="opponentTags"></div>
     </div>
 
@@ -573,11 +562,15 @@ let rosterPlayers = [];
 let extraPlayers = [];
 let entryCount = 0;
 
+// ファイルグループ色分け用：ファイルベース名→カラーインデックスのマップ
+let fileColorMap = {};
+let fileColorCounter = 0;
+
 let recordMode = 'detail';   // 'detail' | 'simple'
 let simpleEntries = [];      // シンプルモード専用のSCENEデータ（{file, time}の配列）
 
 // 今日の試合設定
-let matchSettings = { file: '', event: '', opponent: '', date: '' };
+let matchSettings = { file: '', event: '', opponent: '', date: '', half: '' };
 
 function allPlayers() { return [...rosterPlayers, ...extraPlayers]; }
 
@@ -704,10 +697,6 @@ function applyRecordModeUI(mode, skipClear) {
 
   document.getElementById('playerGridPanel').style.display = mode === 'detail' ? '' : 'none';
   document.getElementById('rosterSection').style.display = mode === 'detail' ? '' : 'none';
-  document.getElementById('eventSection').style.display = mode === 'detail' ? '' : 'none';
-  document.getElementById('opponentSection').style.display = mode === 'detail' ? '' : 'none';
-  document.getElementById('match_event_field').style.display = mode === 'detail' ? '' : 'none';
-  document.getElementById('match_opponent_field').style.display = mode === 'detail' ? '' : 'none';
   updateRecordOverlayVisibility();
   document.getElementById('addSceneBtn').textContent = '＋ シーンを手動追加';
   document.getElementById('addSceneBtn').onclick = mode === 'detail' ? addEntry : addSimpleManualEntry;
@@ -871,6 +860,7 @@ function tapPlayer(player, btnEl) {
     pre:      PRE_SEC,
     post:     POST_SEC,
     player:   player,
+    half:     matchSettings.half || '',
   });
 
 }
@@ -1035,6 +1025,21 @@ function stopCameraStream() {
 }
 
 // ----- ファイルモード -----
+
+// ファイル名「大会名_対戦相手_01 or 02 or PK」をパースしてオブジェクトで返す
+// 例: "県大会_FC大阪_01" → { event:"県大会", opponent:"FC大阪", half:"前半" }
+function parseVideoFileName(baseName) {
+  const parts = baseName.split('_');
+  if (parts.length < 3) return null;
+  const halfRaw = parts[parts.length - 1].toUpperCase();
+  const half = halfRaw === '01' ? '前半' : halfRaw === '02' ? '後半' : halfRaw === 'PK' ? 'PK' : null;
+  if (!half) return null;
+  const opponent = parts[parts.length - 2];
+  const event = parts.slice(0, parts.length - 2).join('_');
+  if (!event || !opponent) return null;
+  return { event, opponent, half };
+}
+
 function loadSharedVideo(event) {
   const file = event.target.files[0]; if (!file) return;
   const video = document.getElementById('sharedVideo');
@@ -1045,18 +1050,49 @@ function loadSharedVideo(event) {
   videoMode = true;
   updateRecordOverlayVisibility();
   const baseName = file.name.replace(/\.[^.]+$/, '');
+
+  // ファイル名から大会名・対戦相手・前後半を自動読み取り
+  const parsed = parseVideoFileName(baseName);
+  if (parsed) {
+    // eventsリストに未登録なら自動追加
+    if (parsed.event && !events.includes(parsed.event)) {
+      events.push(parsed.event);
+    }
+    // opponentsリストに未登録なら自動追加
+    if (parsed.opponent && !opponents.includes(parsed.opponent)) {
+      opponents.push(parsed.opponent);
+    }
+    matchSettings.event    = parsed.event;
+    matchSettings.opponent = parsed.opponent;
+    matchSettings.half     = parsed.half;
+    // 設定モーダルの大会名・対戦相手欄も更新
+    renderTags();
+    const matchEventSel = document.querySelector('#match_event_wrap select');
+    if (matchEventSel) matchEventSel.value = parsed.event;
+    const matchOpponentSel = document.querySelector('#match_opponent_wrap select');
+    if (matchOpponentSel) matchOpponentSel.value = parsed.opponent;
+    showToast(`✅ ${parsed.event} vs ${parsed.opponent}（${parsed.half}）を読み取りました`);
+    // モーダルの「読み取り結果」欄を更新
+    const infoEl = document.getElementById('match_parsed_info');
+    if (infoEl) infoEl.textContent = `${parsed.event}　vs　${parsed.opponent}（${parsed.half}）`;
+  }
+
   // 常にファイル名を更新
   matchSettings.file = baseName;
   saveStorage();
   // 設定モーダルのファイル名欄に反映
   const matchFileEl = document.getElementById('match_file');
   if (matchFileEl) matchFileEl.value = baseName;
-  // 既存SCENEカードのファイル名を反映
-  document.querySelectorAll('.entry-card').forEach(card => {
-    const id = card.id.replace('entry_', '');
-    const fileEl = document.getElementById(`file_${id}`);
-    if (fileEl) { fileEl.value = baseName; updateSummary(parseInt(id, 10)); }
-  });
+  // 既存SCENEがある場合のみ、ファイル名を上書きするか確認する
+  const existingCards = document.querySelectorAll('.entry-card');
+  if (existingCards.length > 0 &&
+      !confirm(`既存の ${existingCards.length} 件のSCENEのファイル名はそのまま保持しますか？\n\n「OK」→ 既存SCENEはそのまま　／　「キャンセル」→ 全件「${baseName}」に変更`)) {
+    existingCards.forEach(card => {
+      const id = card.id.replace('entry_', '');
+      const fileEl = document.getElementById(`file_${id}`);
+      if (fileEl) { fileEl.value = baseName; updateSummary(parseInt(id, 10)); }
+    });
+  }
   updatePreview();
   video.onplay = () => {
     swRunning = true;
@@ -1696,8 +1732,17 @@ function renderDetailEntries() {
 function addEntry(prefill) {
   entryCount++;
   const id = entryCount;
+
+  // ファイルグループ色分け：ファイル名ごとにカラーインデックスを割り当て
+  const fileKey = (prefill?.file || matchSettings.file || '');
+  if (fileKey && !(fileKey in fileColorMap)) {
+    fileColorMap[fileKey] = fileColorCounter % 2;
+    fileColorCounter++;
+  }
+  const colorIdx = fileKey !== '' ? (fileColorMap[fileKey] ?? 0) : 0;
+
   const div = document.createElement('div');
-  div.className = 'entry-card'; div.id = `entry_${id}`;
+  div.className = `entry-card file-color-${colorIdx}`; div.id = `entry_${id}`;
   div.innerHTML = `
     <div class="card-summary" onclick="toggleEntryDetail(${id})">
       <span class="entry-num" id="num_${id}">SCENE #?</span>
@@ -1731,6 +1776,7 @@ function addEntry(prefill) {
           <div class="sec-wrap"><input type="range" min="0" max="15" value="${POST_SEC}" id="post_${id}"
             oninput="document.getElementById('post_val_${id}').textContent=this.value;updatePreview()"></div></div>
         <div class="field"><label>選手名</label><div id="player_wrap_${id}">${makePlayerSelect(id)}</div></div>
+        <input type="hidden" id="half_${id}" value="">
       </div>
     </div>`;
   document.getElementById('entries').appendChild(div);
@@ -1748,6 +1794,11 @@ function addEntry(prefill) {
     if(prefill.pre!==undefined){document.getElementById(`pre_${id}`).value=prefill.pre;document.getElementById(`pre_val_${id}`).textContent=prefill.pre;}
     if(prefill.post!==undefined){document.getElementById(`post_${id}`).value=prefill.post;document.getElementById(`post_val_${id}`).textContent=prefill.post;}
     const plSel=document.getElementById(`player_${id}`); if(plSel&&prefill.player) plSel.value=prefill.player;
+    // 前後半情報をhiddenに保存
+    const halfEl=document.getElementById(`half_${id}`); if(halfEl) halfEl.value=prefill.half||matchSettings.half||'';
+  } else {
+    // 手動追加時もmatchSettingsのhalfを引き継ぐ
+    const halfEl=document.getElementById(`half_${id}`); if(halfEl) halfEl.value=matchSettings.half||'';
   }
   renumberEntries(); updateSummary(id); updatePreview();
   return id;
@@ -1782,8 +1833,14 @@ function updateSummary(id) {
   const min=document.getElementById(`ts_min_${id}`)?.value||'00';
   const sec=document.getElementById(`ts_sec_${id}`)?.value||'00';
   const ts=`${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  const opponent=document.getElementById(`opponent_${id}`)?.value||'';
+  const half=document.getElementById(`half_${id}`)?.value||'';
   const el=document.getElementById(`summary_${id}`);
-  if(el) el.textContent=`${ts}  ${player}`;
+  // 表示: 00:23　FC大阪（前半）　選手名
+  let parts=[ts];
+  if(opponent) parts.push(opponent + (half ? `（${half}）` : ''));
+  parts.push(player);
+  if(el) el.textContent=parts.join('　');
 }
 
 function removeEntry(id) {
@@ -1959,6 +2016,88 @@ async function exportTxt() {
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='timestamps.txt'; a.click();
   showToast('✅ timestamps.txt をダウンロードしました');
+}
+
+// ===== 分割保存（ファイルごとにtimestamps_01.txt, _02.txt...に分けて保存） =====
+async function exportSplitTxt() {
+  if (recordMode === 'simple') { alert('シンプルモードでは分割保存は使えません。'); return; }
+  const rows = getDetailRows();
+  if (!rows.length) { alert('シーンがありません'); return; }
+
+  // ファイルごとにグループ化（登場順を保持）
+  const groups = [];       // [{file, rows:[...]}]
+  const fileOrder = [];    // ファイル名の登場順
+  document.querySelectorAll('.entry-card').forEach(card => {
+    const id = card.id.replace('entry_', '');
+    const file = (document.getElementById(`file_${id}`)?.value || '').trim();
+    if (!fileOrder.includes(file)) fileOrder.push(file);
+  });
+  fileOrder.forEach(f => groups.push({ file: f, rows: [] }));
+  document.querySelectorAll('.entry-card').forEach(card => {
+    const id = card.id.replace('entry_', '');
+    const file = (document.getElementById(`file_${id}`)?.value || '').trim();
+    const min = parseInt(document.getElementById(`ts_min_${id}`)?.value || '0', 10);
+    const sec = parseInt(document.getElementById(`ts_sec_${id}`)?.value || '0', 10);
+    const ts = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    const pre = document.getElementById(`pre_${id}`)?.value || PRE_SEC;
+    const post = document.getElementById(`post_${id}`)?.value || POST_SEC;
+    const ev = document.getElementById(`event_${id}`)?.value || '';
+    const opponent = document.getElementById(`opponent_${id}`)?.value || '';
+    const date = (document.getElementById(`date_${id}`)?.value || '').trim();
+    const player = document.getElementById(`player_${id}`)?.value || '';
+    const fields = [
+      `file=${encodeKV(file + '.mp4')}`,
+      `ts=${encodeKV(ts)}`,
+      `pre=${encodeKV(pre)}`,
+      `post=${encodeKV(post)}`,
+      `event=${encodeKV(ev)}`,
+      `opponent=${encodeKV(opponent)}`,
+      `date=${encodeKV(date)}`,
+      `player=${encodeKV(player)}`,
+    ];
+    const g = groups.find(g => g.file === file);
+    if (g) g.rows.push(fields.join(', '));
+  });
+
+  const header = '# 書式: file=ファイル名, ts=タイムスタンプ, pre=前(秒), post=後(秒), event=大会名, opponent=対戦相手, date=日付, player=選手名';
+  const total = groups.length;
+  if (total === 1) {
+    alert('ファイルが1種類しかないため、通常の「出力」と同じになります。');
+    await exportTxt(); return;
+  }
+
+  let saved = 0;
+  for (let i = 0; i < groups.length; i++) {
+    const g = groups[i];
+    if (!g.rows.length) continue;
+    const num = String(i + 1).padStart(2, '0');
+    const suggestedName = `timestamps_${num}.txt`;
+    const text = [header, ...g.rows].join('\n');
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{ description: 'テキストファイル', accept: { 'text/plain': ['.txt'] } }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(text);
+        await writable.close();
+        saved++;
+      } catch (e) {
+        if (e.name === 'AbortError') { showToast(`⚠ キャンセルされました（${saved}/${total}件保存済み）`); return; }
+        console.error(e);
+        // フォールバック
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = suggestedName; a.click(); saved++;
+      }
+    } else {
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = suggestedName; a.click(); saved++;
+    }
+  }
+  showToast(`✅ ${saved}件のファイルに分割保存しました`);
 }
 
 async function exportSimpleTxt() {
